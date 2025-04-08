@@ -47,6 +47,35 @@ input[type="submit"]:hover {
     background-color: #0056b3;
 }
 
+button {
+    display: block;
+    width: 100%;
+    padding: 10px;
+    margin-top: 15px;
+    font-size: 1.1em;
+    font-weight: bold;
+    color: white;
+    background-color: #28a745; /* 綠色，比藍色提交按鈕更具區別 */
+    border: none;
+    border-radius: 4px;
+    cursor: pointer;
+    text-align: center;
+    transition: background-color 0.3s ease;
+}
+
+button:hover {
+    background-color: #218838;
+}
+
+/* 確保按鈕在小螢幕也能夠良好顯示 */
+@media (max-width: 600px) {
+    button {
+        font-size: 1em;
+        padding: 8px;
+    }
+}
+
+
 .radio-container {
     display: flex;
     flex-direction: row;

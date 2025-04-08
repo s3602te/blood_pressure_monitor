@@ -1,26 +1,30 @@
 <!DOCTYPE html>
 <html lang="zh">
+
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>血壓監測表</title>
     <link rel="stylesheet" href="style.css">
 </head>
+
 <body>
     <div class="container">
         <h2>每日血壓與脈搏記錄</h2>
         <!-- 注意將 action 指向你的 Google Apps Script API 網址 -->
-        <form id="bpForm" action="https://script.google.com/macros/s/AKfycbzrFVUBw72vURX3TTmRPmDl-cq6sSHVC_U7aFxWc70_P4RgXZOuECGzkq_Pyh7Nle81Bg/exec" method="POST">
+        <form id="bpForm"
+            action="https://script.google.com/macros/s/AKfycbzrFVUBw72vURX3TTmRPmDl-cq6sSHVC_U7aFxWc70_P4RgXZOuECGzkq_Pyh7Nle81Bg/exec"
+            method="POST">
             <label>日期（必填）：</label>
             <input type="date" name="date" required>
 
-            <label>收縮壓 (mmHg)（必填）：</label>
+            <label>收縮壓 SYS (mmHg)（必填）：</label>
             <input type="number" name="systolic" required>
 
-            <label>舒張壓 (mmHg)（必填）：</label>
+            <label>舒張壓 DIA (mmHg)（必填）：</label>
             <input type="number" name="diastolic" required>
 
-            <label>脈搏 (次/分鐘)（必填）：</label>
+            <label>脈搏 PULSE (次/分鐘)（必填）：</label>
             <input type="number" name="pulse" required>
 
             <label>今日狀況（可選填）：</label>
@@ -45,9 +49,11 @@
             </div>
 
             <input type="submit" value="送出">
+            <button onclick="location.href='bp_reports.html'">查看血壓歷史紀錄</button>
         </form>
         <p id="output"></p>
     </div>
     <script src="script.js"></script>
 </body>
+
 </html>
