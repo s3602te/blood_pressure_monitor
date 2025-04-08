@@ -1,13 +1,12 @@
 <!DOCTYPE html>
 <html lang="zh">
-
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>血壓報告</title>
     <link rel="stylesheet" href="style.css">
+    <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
 </head>
-
 <body>
     <div class="container">
         <h2>血壓歷史紀錄報告</h2>
@@ -26,9 +25,15 @@
             <tbody>
             </tbody>
         </table>
+        <canvas id="bpChart"></canvas>
+        <!-- 分頁按鈕，橫向排列 -->
+        <div id="pagination">
+            <button id="prevPage" onclick="prevPage()">上一頁</button>
+            <span id="pageInfo">1/1</span>
+            <button id="nextPage" onclick="nextPage()">下一頁</button>
+        </div>
         <button onclick="location.href='index.html'">記錄血壓頁面</button>
     </div>
     <script src="bp_report.js"></script>
 </body>
-
 </html>
