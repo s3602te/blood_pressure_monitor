@@ -2,10 +2,23 @@
 <html lang="zh">
 <head>
   <meta charset="UTF-8" />
-  <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+
+  <!-- PWA 必要：manifest -->
+  <link rel="manifest" href="icons/site.webmanifest">
+  <meta name="theme-color" content="#007BFF">
+
+  <!-- RealFaviconGenerator 給的 Icon 標籤 -->
+  <link rel="apple-touch-icon" sizes="180x180" href="icons/apple-touch-icon.png">
+  <link rel="icon" type="image/png" sizes="32x32" href="icons/favicon-32x32.png">
+  <link rel="icon" type="image/png" sizes="16x16" href="icons/favicon-16x16.png">
+  <link rel="shortcut icon" href="icons/favicon.ico">
+  <link rel="icon" type="image/svg+xml" href="icons/favicon.svg">
+  <!-- 如有 browserconfig.xml，也一併加上： -->
+  <meta name="msapplication-config" content="icons/browserconfig.xml">
+
   <title>血壓歷史紀錄報告</title>
   <link rel="stylesheet" href="style.css" />
-  <!-- Chart.js for interactive legend toggling -->
   <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
 </head>
 <body>
@@ -26,9 +39,9 @@
       <tbody></tbody>
     </table>
 
-    
+
     <canvas id="bpChart" style="max-width:100%; margin-top:20px;"></canvas>
-    
+
     <div id="pagination" style="display:flex;justify-content:center;align-items:center;gap:10px;margin:15px 0;">
       <button id="prevPage">上一頁</button>
       <select id="pageSelect"></select>
@@ -39,7 +52,17 @@
     </button>
   </div>
 
+  <!-- 註冊 Service Worker -->
+  <script>
+    if ('serviceWorker' in navigator) {
+      navigator.serviceWorker.register('./sw.js')
+        .then(() => console.log('SW registered'))
+        .catch(err => console.error('SW failed:', err));
+    }
+  </script>
+
   <!-- 請注意：載入單數檔名 bp_report.js -->
   <script src="bp_report.js"></script>
 </body>
+
 </html>
