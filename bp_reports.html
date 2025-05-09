@@ -1,39 +1,45 @@
 <!DOCTYPE html>
 <html lang="zh">
 <head>
-    <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>血壓報告</title>
-    <link rel="stylesheet" href="style.css">
-    <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
+  <title>血壓歷史紀錄報告</title>
+  <link rel="stylesheet" href="style.css" />
+  <!-- Chart.js for interactive legend toggling -->
+  <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
 </head>
 <body>
-    <div class="container">
-        <h2>血壓歷史紀錄報告</h2>
-        <table id="reportsTable">
-            <thead>
-                <tr>
-                    <th>日期</th>
-                    <th>收縮壓</th>
-                    <th>舒張壓</th>
-                    <th>脈搏</th>
-                    <th>緊張程度</th>
-                    <th>吃藥狀況</th>
-                    <th>今日狀況</th>
-                </tr>
-            </thead>
-            <tbody>
-            </tbody>
-        </table>
-        <canvas id="bpChart"></canvas>
-        <!-- 分頁按鈕，橫向排列 -->
-        <div id="pagination">
-            <button id="prevPage" onclick="prevPage()">上一頁</button>
-            <span id="pageInfo">1/1</span>
-            <button id="nextPage" onclick="nextPage()">下一頁</button>
-        </div>
-        <button onclick="location.href='index.html'">記錄血壓頁面</button>
+  <div class="container">
+    <h2>血壓歷史紀錄報告</h2>
+    <table id="reportsTable">
+      <thead>
+        <tr>
+          <th>日期</th>
+          <th>收縮壓</th>
+          <th>舒張壓</th>
+          <th>脈搏</th>
+          <th>緊張程度</th>
+          <th>吃藥狀況</th>
+          <th>今日狀況</th>
+        </tr>
+      </thead>
+      <tbody></tbody>
+    </table>
+
+    
+    <canvas id="bpChart" style="max-width:100%; margin-top:20px;"></canvas>
+    
+    <div id="pagination" style="display:flex;justify-content:center;align-items:center;gap:10px;margin:15px 0;">
+      <button id="prevPage">上一頁</button>
+      <select id="pageSelect"></select>
+      <button id="nextPage">下一頁</button>
     </div>
-    <script src="bp_report.js"></script>
+    <button onclick="location.href='index.html'" style="margin-top:20px;">
+      記錄血壓頁面
+    </button>
+  </div>
+
+  <!-- 請注意：載入單數檔名 bp_report.js -->
+  <script src="bp_report.js"></script>
 </body>
 </html>
