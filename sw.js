@@ -1,5 +1,5 @@
 // 網路優先：有網路就拿最新版，沒網路才用快取，避免家人的手機一直看到舊版。
-const CACHE_NAME = 'bp-app-cache-v3';
+const CACHE_NAME = 'bp-app-cache-v4';
 const URLS_TO_CACHE = [
   './',
   './index.html',

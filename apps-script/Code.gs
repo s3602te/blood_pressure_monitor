@@ -25,12 +25,13 @@ const MAX_ADMIN_FAILS = 5;    // 管理密碼連續輸錯幾次就暫停
 const MIN_PASSWORD = 4;       // 密碼最短字元數（4 碼可以放生日）
 const LOCK_SECONDS = 600;     // 暫停時間（秒）
 const DUPLICATE_SECONDS = 5;  // 幾秒內完全相同的送出視為重複
+const REQUEST_ID_SECONDS = 21600; // 同一次填寫編號的記憶時間（6 小時，已是快取允許的最長時間）
 const SITE_URL = 'https://s3602te.github.io/blood_pressure_monitor/';
 
 /* ───────────── 入口 ───────────── */
 
 // 會寫入資料的動作才需要搶鎖；單純讀取不用排隊，同時開多個頁面也不會互相等
-const WRITE_ACTIONS = ['register', 'login', 'add', 'adminList', 'adminReset'];
+const WRITE_ACTIONS = ['register', 'login', 'add', 'update', 'delete', 'adminList', 'adminReset'];
 
 function doPost(e) {
   const p = (e && e.parameter) || {};
@@ -48,6 +49,8 @@ function doPost(e) {
       case 'logout':   return json_(logout_(p));
       case 'me':       return json_(me_(p));
       case 'add':      return json_(addRecord_(p));
+      case 'update':   return json_(updateRecord_(p));
+      case 'delete':   return json_(deleteRecord_(p));
       case 'list':     return json_(listRecords_(p));
       case 'adminList':  return json_(adminList_(p));
       case 'adminReset': return json_(adminReset_(p));
@@ -148,6 +151,34 @@ function me_(p) {
 
 /* ───────────── 血壓資料 ───────────── */
 
+// 新增與修改共用的檢查：通過就回傳整理好的數值，沒通過回傳 { error: '原因' }
+function parseRecord_(p) {
+  const date = String(p.date || '');
+  const systolic = toInt_(p.systolic, 50, 300);
+  const diastolic = toInt_(p.diastolic, 30, 200);
+  const pulse = toInt_(p.pulse, 30, 250);
+  const medication = String(p.medication || '');
+  const notes = String(p.notes || '').trim().slice(0, 500);
+
+  if (!validDate_(date)) return { error: '日期格式不正確' };
+  if (date > Utilities.formatDate(new Date(), sheetTz_(), 'yyyy-MM-dd')) return { error: '日期不能是未來的日子' };
+  if (systolic === null) return { error: '收縮壓請輸入 50 到 300 之間的數字' };
+  if (diastolic === null) return { error: '舒張壓請輸入 30 到 200 之間的數字' };
+  if (pulse === null) return { error: '脈搏請輸入 30 到 250 之間的數字' };
+  if (medication !== '有吃' && medication !== '沒吃') return { error: '請選擇吃藥狀況' };
+  return { date: date, systolic: systolic, diastolic: diastolic, pulse: pulse, medication: medication, notes: notes };
+}
+
+// 手機沒訊號時資料會先暫存，補送時帶上當初按下儲存的時間，這樣早上／晚上的判斷才不會錯。
+// 只接受「過去 14 天內、不是未來」的時間，其餘一律用伺服器現在的時間。
+function validClientTime_(value) {
+  const n = Number(value);
+  if (!n) return null;
+  const now = Date.now();
+  if (n > now + 300000 || n < now - 14 * 86400000) return null;
+  return new Date(n);
+}
+
 function addRecord_(p) {
   const acc = authenticate_(p.token);
   if (!acc) return authFail_();
@@ -159,37 +190,76 @@ function addRecord_(p) {
   const requestKey = requestId ? 'req_' + acc.username.toLowerCase() + '_' + requestId : '';
   if (requestKey && cache.get(requestKey)) return { ok: true, duplicate: true };
 
-  const date = String(p.date || '');
-  const systolic = toInt_(p.systolic, 50, 300);
-  const diastolic = toInt_(p.diastolic, 30, 200);
-  const pulse = toInt_(p.pulse, 30, 250);
-  const medication = String(p.medication || '');
-  const notes = String(p.notes || '').trim().slice(0, 500);
-
-  if (!validDate_(date)) return fail_('日期格式不正確');
-  if (date > Utilities.formatDate(new Date(), sheetTz_(), 'yyyy-MM-dd')) return fail_('日期不能是未來的日子');
-  if (systolic === null) return fail_('收縮壓請輸入 50 到 300 之間的數字');
-  if (diastolic === null) return fail_('舒張壓請輸入 30 到 200 之間的數字');
-  if (pulse === null) return fail_('脈搏請輸入 30 到 250 之間的數字');
-  if (medication !== '有吃' && medication !== '沒吃') return fail_('請選擇吃藥狀況');
+  const rec = parseRecord_(p);
+  if (rec.error) return fail_(rec.error);
 
   const sheet = dataSheet_(acc);
   const now = new Date();
+  const created = validClientTime_(p.clientAt) || now;
   const lastRow = sheet.getLastRow();
   if (lastRow > 1) {
     const last = sheet.getRange(lastRow, 1, 1, 9).getValues()[0];
     const lastDate = dateText_(last[0]);
-    const created = last[7] instanceof Date ? last[7].getTime() : 0;
-    const same = lastDate === date &&
-      Number(last[1]) === systolic && Number(last[2]) === diastolic && Number(last[3]) === pulse &&
-      String(last[5]) === medication && String(last[6]) === notes;
-    if (same && now.getTime() - created < DUPLICATE_SECONDS * 1000) {
+    const lastCreated = last[7] instanceof Date ? last[7].getTime() : 0;
+    const same = lastDate === rec.date &&
+      Number(last[1]) === rec.systolic && Number(last[2]) === rec.diastolic && Number(last[3]) === rec.pulse &&
+      String(last[5]) === rec.medication && String(last[6]) === rec.notes;
+    if (same && now.getTime() - lastCreated < DUPLICATE_SECONDS * 1000) {
       return { ok: true, duplicate: true };
     }
   }
 
-  sheet.appendRow([date, systolic, diastolic, pulse, '', medication, plainText_(notes), now, now]);
-  if (requestKey) cache.put(requestKey, '1', 600);
+  sheet.appendRow([rec.date, rec.systolic, rec.diastolic, rec.pulse, '', rec.medication, plainText_(rec.notes), created, now]);
+  if (requestKey) cache.put(requestKey, '1', REQUEST_ID_SECONDS);
+  return { ok: true };
+}
+
+// 修改或刪除前，確認這一列還是使用者當初看到的那一筆（日期和建立時間都要對得上）。
+// 萬一有人在試算表裡插入、刪除過列，列號會對不上，就拒絕，避免改到別筆。找不到回傳 0。
+function locateRow_(sheet, p) {
+  const row = Number(p.row);
+  if (!Number.isInteger(row) || row < 2 || row > sheet.getLastRow()) return 0;
+  const r = sheet.getRange(row, 1, 1, 8).getValues()[0];
+  const created = r[7] instanceof Date ? r[7].getTime() : 0;
+  if (dateText_(r[0]) !== String(p.origDate || '') || created !== Number(p.origAt || 0)) return 0;
+  return row;
+}
+
+const STALE_MESSAGE = '這筆紀錄已經有變動，請回到歷史頁重新整理後再試';
+
+function updateRecord_(p) {
+  const acc = authenticate_(p.token);
+  if (!acc) return authFail_();
+
+  const rec = parseRecord_(p);
+  if (rec.error) return fail_(rec.error);
+
+  const sheet = dataSheet_(acc);
+  const row = locateRow_(sheet, p);
+  if (!row) return fail_(STALE_MESSAGE, 'STALE');
+
+  const range = sheet.getRange(row, 1, 1, 9);
+  const v = range.getValues()[0];
+  v[0] = rec.date;
+  v[1] = rec.systolic;
+  v[2] = rec.diastolic;
+  v[3] = rec.pulse;
+  v[5] = rec.medication;
+  v[6] = plainText_(rec.notes);
+  v[8] = new Date();
+  range.setValues([v]);
+  return { ok: true };
+}
+
+function deleteRecord_(p) {
+  const acc = authenticate_(p.token);
+  if (!acc) return authFail_();
+
+  const sheet = dataSheet_(acc);
+  const row = locateRow_(sheet, p);
+  if (!row) return fail_(STALE_MESSAGE, 'STALE');
+
+  sheet.deleteRow(row);
   return { ok: true };
 }
 
@@ -215,6 +285,7 @@ function listRecords_(p) {
     const r = rows[i];
     if (r[0] === '' || r[0] === null) continue;
     records.push({
+      row: i + 1,
       date: dateText_(r[0]),
       sys: Number(r[1]),
       dia: Number(r[2]),
@@ -252,6 +323,22 @@ function sendDiscordReminder() {
   }
 }
 
+// 有事情要立刻讓管理者知道（例如有人一直猜管理密碼）。沒設定 DISCORD_WEBHOOK 就略過。
+function notifyDiscord_(text) {
+  const url = prop_('DISCORD_WEBHOOK');
+  if (!url) return;
+  try {
+    UrlFetchApp.fetch(url, {
+      method: 'post',
+      contentType: 'application/json',
+      payload: JSON.stringify({ content: text, username: 'BloodPressureBot' }),
+      muteHttpExceptions: true
+    });
+  } catch (err) {
+    Logger.log('發送 Discord 通知時發生錯誤: ' + err);
+  }
+}
+
 // 執行一次即可：每天 03:01、07:00、21:45 提醒
 function setupTriggers() {
   ScriptApp.getProjectTriggers().forEach(function (t) {
@@ -270,13 +357,30 @@ function adminCheck_(p) {
   const code = prop_('ADMIN_CODE');
   if (!code) return fail_('尚未設定管理密碼，請先在指令碼屬性新增 ADMIN_CODE');
   const cache = CacheService.getScriptCache();
-  const fails = Number(cache.get('admin_fails') || 0);
-  if (fails >= MAX_ADMIN_FAILS) return fail_('嘗試次數過多，請 10 分鐘後再試');
-  if (String(p.adminCode || '') !== code) {
-    cache.put('admin_fails', String(fails + 1), LOCK_SECONDS);
+
+  const lockedUntil = Number(cache.get('admin_lock') || 0);
+  if (lockedUntil > Date.now()) {
+    return fail_('嘗試次數過多，請 ' + Math.ceil((lockedUntil - Date.now()) / 60000) + ' 分鐘後再試');
+  }
+
+  if (!safeEqual_(String(p.adminCode || ''), code)) {
+    const fails = Number(cache.get('admin_fails') || 0) + 1;
+    if (fails >= MAX_ADMIN_FAILS) {
+      // 每鎖一次，下一次就鎖更久：10 分鐘 → 1 小時 → 6 小時（快取最長只能記 6 小時）
+      const strikes = Number(cache.get('admin_strikes') || 0) + 1;
+      const seconds = Math.min(LOCK_SECONDS * Math.pow(6, strikes - 1), 21600);
+      cache.put('admin_strikes', String(strikes), 21600);
+      cache.put('admin_lock', String(Date.now() + seconds * 1000), 21600);
+      cache.remove('admin_fails');
+      notifyDiscord_('🚨 管理頁面被連續輸錯密碼 ' + fails + ' 次，已暫停 ' + Math.round(seconds / 60) +
+        ' 分鐘（這是第 ' + strikes + ' 次）。如果不是你本人，請更換 ADMIN_CODE。');
+      return fail_('管理密碼不正確，嘗試次數過多，已暫停一段時間');
+    }
+    cache.put('admin_fails', String(fails), LOCK_SECONDS);
     return fail_('管理密碼不正確');
   }
   cache.remove('admin_fails');
+  cache.remove('admin_strikes');
   return null; // 通過
 }
 
@@ -362,6 +466,15 @@ function fail_(message, code) {
 
 function authFail_() {
   return fail_('登入已過期，請重新登入', 'AUTH');
+}
+
+// 比對機密字串：先各自轉成固定長度的雜湊，再逐字比到最後，不會因為前面幾個字不同就提早結束
+function safeEqual_(a, b) {
+  const x = sha256_(a);
+  const y = sha256_(b);
+  let diff = 0;
+  for (let i = 0; i < x.length; i++) diff |= x.charCodeAt(i) ^ y.charCodeAt(i);
+  return diff === 0;
 }
 
 function toInt_(value, min, max) {
