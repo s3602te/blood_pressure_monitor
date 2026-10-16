@@ -22,6 +22,7 @@
    | `REGISTER_CODE` | 註冊邀請碼，自己訂一組，只告訴家人（必填） |
    | `DISCORD_WEBHOOK` | Discord webhook 網址（選填） |
    | `LEGACY_OWNER` | 舊資料的主人帳號，例如 `mom`（選填） |
+   | `ADMIN_CODE` | 管理頁面（`admin.html`）的管理密碼，要比邀請碼更難猜（要用管理頁面才需要） |
    | `SPREADSHEET_ID` | 指令碼綁在試算表裡可不填 |
 
 3. 編輯器選 `setupTriggers` 執行一次（只要設定過就不用再跑）。
@@ -38,11 +39,14 @@
 
 管理者看不到任何人的密碼（只存雜湊），但可以重設：
 
-1. Apps Script 編輯器找到 `resetPassword`，把 `USERNAME` 和 `NEW_PASSWORD` 改成要重設的帳號與新密碼，存檔。
-2. 上方函式選單選 `resetPassword`，按「執行」。這是直接在編輯器執行，不用重新部署。
-3. 把新密碼告訴家人，然後把兩個值改回提示文字再存檔。
+1. 打開管理頁面 `https://s3602te.github.io/blood_pressure_monitor/admin.html`（沒有任何頁面連到它，自己存書籤）。
+2. 輸入 `ADMIN_CODE` 的管理密碼，選要重設的人，輸入新密碼（至少 4 個字元），按「重設密碼」。
+3. 把新密碼告訴對方。
 
-重設後，該帳號在所有裝置上都會被登出，需要用新密碼重新登入。
+重設後，該帳號在所有裝置上都會被登出，需要用新密碼重新登入，紀錄不受影響。
+`ADMIN_CODE` 沒設定時，管理頁面完全關閉；管理密碼連錯 5 次會暫停 10 分鐘。
+
+備用：也可以在 Apps Script 編輯器改 `resetPassword` 的兩個值後執行（不用部署），做完記得改回提示文字。
 
 ## 安全提醒
 

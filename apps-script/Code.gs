@@ -21,6 +21,8 @@ const TOKEN_DAYS = 90;        // 登入一次，這台裝置可保持登入的�
 const HASH_ROUNDS = 300;      // 密碼雜湊重複次數
 const MAX_LOGIN_FAILS = 5;    // 同一帳號連續輸錯幾次就暫停
 const MAX_INVITE_FAILS = 10;  // 邀請碼連續輸錯幾次就暫停
+const MAX_ADMIN_FAILS = 5;    // 管理密碼連續輸錯幾次就暫停
+const MIN_PASSWORD = 4;       // 密碼最短字元數（4 碼可以放生日）
 const LOCK_SECONDS = 600;     // 暫停時間（秒）
 const DUPLICATE_SECONDS = 5;  // 幾秒內完全相同的送出視為重複
 const SITE_URL = 'https://s3602te.github.io/blood_pressure_monitor/';
@@ -39,6 +41,8 @@ function doPost(e) {
       case 'me':       return json_(me_(p));
       case 'add':      return json_(addRecord_(p));
       case 'list':     return json_(listRecords_(p));
+      case 'adminList':  return json_(adminList_(p));
+      case 'adminReset': return json_(adminReset_(p));
       default:         return json_(fail_('不支援的操作'));
     }
   } catch (err) {
@@ -73,7 +77,9 @@ function register_(p) {
   if (!/^[A-Za-z0-9_一-龥]{2,20}$/.test(username)) {
     return fail_('帳號需為 2 到 20 個中文、英文、數字或底線');
   }
-  if (password.length < 6 || password.length > 64) return fail_('密碼需為 6 到 64 個字元');
+  if (password.length < MIN_PASSWORD || password.length > 64) {
+    return fail_('密碼需為 ' + MIN_PASSWORD + ' 到 64 個字元');
+  }
   if (username === ACCOUNT_SHEET) return fail_('這個帳號名稱不能使用');
   if (findAccount_(username)) return fail_('這個帳號已經有人使用');
 
@@ -231,27 +237,58 @@ function setupTriggers() {
 
 /* ───────────── 管理者工具 ───────────── */
 
-// 家人忘記密碼時：改好下面兩個值，在編輯器上方選 resetPassword 按「執行」。
-// 這是在編輯器直接執行，只有你本人做得到；存檔後就能執行，不需要重新部署。
-// 做完請把兩個值改回原本的提示文字，不要把密碼留在程式碼裡。
-function resetPassword() {
-  const USERNAME = '在這裡填帳號';
-  const NEW_PASSWORD = '在這裡填新密碼';
+// 管理頁面（admin.html）使用。要先在「指令碼屬性」設定 ADMIN_CODE，沒設定就完全關閉。
+function adminCheck_(p) {
+  const code = prop_('ADMIN_CODE');
+  if (!code) return fail_('尚未設定管理密碼，請先在指令碼屬性新增 ADMIN_CODE');
+  const cache = CacheService.getScriptCache();
+  const fails = Number(cache.get('admin_fails') || 0);
+  if (fails >= MAX_ADMIN_FAILS) return fail_('嘗試次數過多，請 10 分鐘後再試');
+  if (String(p.adminCode || '') !== code) {
+    cache.put('admin_fails', String(fails + 1), LOCK_SECONDS);
+    return fail_('管理密碼不正確');
+  }
+  cache.remove('admin_fails');
+  return null; // 通過
+}
 
-  if (NEW_PASSWORD.length < 6 || NEW_PASSWORD.length > 64) throw new Error('新密碼需為 6 到 64 個字元');
+function adminList_(p) {
+  const denied = adminCheck_(p);
+  if (denied) return denied;
+  const rows = accountSheet_().getDataRange().getValues();
+  const accounts = [];
+  for (let i = 1; i < rows.length; i++) {
+    if (String(rows[i][0]) !== '') accounts.push({ username: String(rows[i][0]), displayName: String(rows[i][1]) });
+  }
+  return { ok: true, accounts: accounts };
+}
+
+function adminReset_(p) {
+  const denied = adminCheck_(p);
+  if (denied) return denied;
+  const password = String(p.newPassword || '');
+  if (password.length < MIN_PASSWORD || password.length > 64) {
+    return fail_('新密碼需為 ' + MIN_PASSWORD + ' 到 64 個字元');
+  }
+  if (!setPassword_(String(p.username || ''), password)) return fail_('找不到這個帳號');
+  return { ok: true };
+}
+
+// 換掉密碼；同時讓該帳號在所有裝置登出，並解除輸錯密碼造成的暫停。找不到帳號回傳 false。
+function setPassword_(username, newPassword) {
   const sheet = accountSheet_();
   const rows = sheet.getDataRange().getValues();
-  const key = USERNAME.trim().toLowerCase();
+  const key = String(username).trim().toLowerCase();
+  if (!key) return false;
   let row = 0;
   for (let i = 1; i < rows.length; i++) {
     if (String(rows[i][0]).toLowerCase() === key) { row = i + 1; break; }
   }
-  if (!row) throw new Error('找不到帳號：' + USERNAME);
+  if (!row) return false;
 
   const salt = sha256_(Utilities.getUuid()).slice(0, 16);
-  sheet.getRange(row, 4, 1, 2).setValues([[salt, hashPassword_(salt, NEW_PASSWORD)]]);
+  sheet.getRange(row, 4, 1, 2).setValues([[salt, hashPassword_(salt, newPassword)]]);
 
-  // 讓這個帳號在所有裝置上登出，並解除輸錯密碼造成的暫停
   const props = PropertiesService.getScriptProperties();
   const all = props.getProperties();
   Object.keys(all).forEach(function (k) {
@@ -260,7 +297,19 @@ function resetPassword() {
     }
   });
   CacheService.getScriptCache().remove('fail_' + key.slice(0, 40));
+  return true;
+}
 
+// 備用：不想用管理頁面時，改好下面兩個值，在編輯器選 resetPassword 按「執行」（不需要重新部署）。
+// 做完請把兩個值改回提示文字，不要把密碼留在程式碼裡。
+function resetPassword() {
+  const USERNAME = '在這裡填帳號';
+  const NEW_PASSWORD = '在這裡填新密碼';
+
+  if (NEW_PASSWORD.length < MIN_PASSWORD || NEW_PASSWORD.length > 64) {
+    throw new Error('新密碼需為 ' + MIN_PASSWORD + ' 到 64 個字元');
+  }
+  if (!setPassword_(USERNAME, NEW_PASSWORD)) throw new Error('找不到帳號：' + USERNAME);
   Logger.log('已重設 ' + USERNAME + ' 的密碼，請記得把程式碼裡的帳號與密碼改回提示文字');
 }
 
