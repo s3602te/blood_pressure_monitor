@@ -17,6 +17,8 @@ secrets/
 # ── 一般雜項 ────────────────────────────────────────────
 tesl
 node_modules/
+dist/
+e2e/shots/
 *.log
 .DS_Store
 Thumbs.db

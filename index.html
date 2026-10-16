@@ -1,101 +1,23 @@
-<!DOCTYPE html>
+<!doctype html>
 <html lang="zh-Hant">
-<head>
-  <meta charset="UTF-8">
-  <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover">
-  <meta name="theme-color" content="#f2f6f5">
-  <link rel="manifest" href="icons/site.webmanifest">
-  <link rel="apple-touch-icon" sizes="180x180" href="icons/apple-touch-icon.png">
-  <link rel="shortcut icon" href="icons/favicon.ico">
-  <link rel="icon" type="image/svg+xml" href="icons/favicon.svg">
-  <link rel="preconnect" href="https://fonts.googleapis.com">
-  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-  <link href="https://fonts.googleapis.com/css2?family=Noto+Sans+TC:wght@300;400;500;700;900&display=swap" rel="stylesheet">
-  <title>記錄血壓｜血壓記錄</title>
-  <link rel="stylesheet" href="style.css?v=6">
-</head>
-<body class="has-nav">
-  <header class="topbar">
-    <div class="wrap topbar-in">
-      <span class="brand">血壓記錄</span>
-      <div class="who">
-        <span id="userName"></span>
-        <button type="button" class="link-btn" id="fontBtn">放大字</button>
-        <button type="button" class="link-btn" id="logoutBtn">登出</button>
-      </div>
-    </div>
-  </header>
-
-  <main class="wrap">
-    <h1 class="page-title">記錄今天的血壓</h1>
-    <p class="page-sub" id="todayText"></p>
-
-    <div class="pending" id="pendingBox" role="status" hidden>
-      <p id="pendingText"></p>
-      <button type="button" class="btn btn-quiet" id="pendingRetry">現在重試上傳</button>
-    </div>
-
-    <form id="bpForm">
-      <div class="readout">
-        <p class="readout-caption">血壓（mmHg）</p>
-        <div class="readout-grid">
-          <div class="readout-cell">
-            <label for="systolic">收縮壓（高壓）</label>
-            <input id="systolic" name="systolic" type="number" inputmode="numeric" min="50" max="300" placeholder="120" required>
-          </div>
-          <span class="readout-slash" aria-hidden="true">/</span>
-          <div class="readout-cell">
-            <label for="diastolic">舒張壓（低壓）</label>
-            <input id="diastolic" name="diastolic" type="number" inputmode="numeric" min="30" max="200" placeholder="80" required>
-          </div>
-        </div>
-        <div class="readout-pulse">
-          <label for="pulse">脈搏</label>
-          <input id="pulse" name="pulse" type="number" inputmode="numeric" min="30" max="250" placeholder="70" required>
-          <span>次／分鐘</span>
-        </div>
-      </div>
-
-      <div class="field">
-        <label for="date">量測日期</label>
-        <input class="input" id="date" name="date" type="date" required>
-      </div>
-
-      <div class="field" role="radiogroup" aria-labelledby="medLabel">
-        <span class="label" id="medLabel">今天有吃藥嗎？</span>
-        <div class="seg">
-          <label><input type="radio" name="medication" value="有吃" required><span>有吃</span></label>
-          <label><input type="radio" name="medication" value="沒吃" required><span>沒吃</span></label>
-        </div>
-      </div>
-
-      <div class="field">
-        <label for="notes">今天的狀況 <span class="field-hint">（選填）</span></label>
-        <textarea class="input" id="notes" name="notes" maxlength="500" placeholder="例如：心情好、有點累、壓力大"></textarea>
-      </div>
-
-      <button class="btn btn-primary" id="submitBtn" type="submit">儲存紀錄</button>
-    </form>
-    <p class="app-ver" id="appVer"></p>
-  </main>
-
-  <div class="modal" id="resultDialog" role="alertdialog" aria-modal="true" aria-labelledby="resultTitle" aria-describedby="resultDetail" hidden>
-    <div class="modal-card">
-      <div class="modal-icon" aria-hidden="true"></div>
-      <h2 id="resultTitle"></h2>
-      <p id="resultDetail"></p>
-      <button type="button" class="btn btn-primary" id="resultOk">好</button>
-    </div>
-  </div>
-
-  <nav class="nav-bottom" aria-label="主要頁面">
-    <a href="index.html" aria-current="page">記錄血壓</a>
-    <a href="bp_reports.html">歷史紀錄</a>
-    <a href="doctor.html">給醫師看</a>
-  </nav>
-
-  <script src="config.js?v=6"></script>
-  <script src="auth.js?v=6"></script>
-  <script src="script.js?v=6"></script>
-</body>
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover" />
+    <meta name="theme-color" content="#f2f6f5" />
+    <meta name="robots" content="noindex, nofollow" />
+    <link rel="icon" type="image/svg+xml" href="icons/favicon.svg" />
+    <link rel="shortcut icon" href="icons/favicon.ico" />
+    <link rel="apple-touch-icon" sizes="180x180" href="icons/apple-touch-icon.png" />
+    <link rel="preconnect" href="https://fonts.googleapis.com" />
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+    <link
+      href="https://fonts.googleapis.com/css2?family=Noto+Sans+TC:wght@300;400;500;700;900&display=swap"
+      rel="stylesheet"
+    />
+    <title>血壓記錄</title>
+  </head>
+  <body>
+    <div id="root"></div>
+    <script type="module" src="/src/main.tsx"></script>
+  </body>
 </html>

@@ -1,0 +1,196 @@
+import { useState, type FormEvent } from 'react'
+import { deleteRecord, errorOf, handleAuthError, updateRecord, type RecordRef } from '../lib/api'
+import { dateText, isHigh, pad, slotName, type DayAgg } from '../lib/records'
+import type { BpRecord } from '../lib/types'
+import { btnDanger, btnPrimary, btnQuiet, field, fieldLabel, hiMark, input, segInput, segLabel, segWrap } from '../ui'
+import { Modal } from './Modal'
+
+interface Props {
+  day: DayAgg
+  /** 修改或刪除成功後，重新抓最新紀錄 */
+  onChanged: () => Promise<unknown>
+  onClose: () => void
+}
+
+const refOf = (r: BpRecord): RecordRef => ({ row: r.row as number, origAt: r.at, origDate: r.date })
+
+function timeText(r: BpRecord) {
+  if (!r.at) return '（沒有記錄時間）'
+  const t = new Date(r.at)
+  return `${slotName(r.at)} ${pad(t.getHours())}:${pad(t.getMinutes())}`
+}
+
+/** 點歷史頁某一天的「修改」會打開這個視窗：列出那天的每一筆，可以逐筆修改或刪除 */
+export function DayDialog({ day, onChanged, onClose }: Props) {
+  const [editing, setEditing] = useState<number | null>(null) // 正在修改的列號
+  const [busy, setBusy] = useState(false)
+  const [error, setError] = useState('')
+
+  // 沒成功：顯示原因。資料如果已經被別處改過（STALE），順便更新畫面。
+  const fail = async (result: Parameters<typeof errorOf>[0]) => {
+    setError(errorOf(result, '沒有成功，請再試一次'))
+    if (!result.ok && result.code === 'STALE') await onChanged()
+  }
+
+  const remove = async (r: BpRecord) => {
+    const what = `${r.date}　${r.sys}/${r.dia}　脈搏 ${Number.isFinite(r.pulse) ? r.pulse : '--'}`
+    if (!confirm(`確定要刪除這筆紀錄嗎？\n\n${what}\n\n刪除後無法復原。`)) return
+    setError('')
+    setBusy(true)
+    const result = await deleteRecord(refOf(r))
+    setBusy(false)
+    if (handleAuthError(result)) return
+    if (!result.ok) return fail(result)
+    await onChanged()
+  }
+
+  return (
+    <Modal onClose={onClose} labelledBy="dayTitle" wide>
+      <h2 id="dayTitle" className="text-center text-[1.625rem] leading-tight font-black">
+        {day.label}（週{day.weekday}）的紀錄
+      </h2>
+      <p className="mt-2 text-center break-words text-muted">
+        {day.items.length > 1 ? `這天有 ${day.items.length} 筆，可以分別修改或刪除。` : '可以修改或刪除這筆紀錄。'}
+      </p>
+
+      {day.items.map((r) =>
+        editing === r.row ? (
+          <EditForm
+            key={r.row ?? r.at}
+            record={r}
+            busy={busy}
+            onCancel={() => {
+              setError('')
+              setEditing(null)
+            }}
+            onSubmit={async (edit) => {
+              setError('')
+              setBusy(true)
+              const result = await updateRecord(refOf(r), edit)
+              setBusy(false)
+              if (handleAuthError(result)) return
+              if (!result.ok) return fail(result)
+              setEditing(null)
+              await onChanged()
+              if (edit.date !== r.date) onClose() // 改了日期，這筆已經搬到別天
+            }}
+          />
+        ) : (
+          <div key={r.row ?? r.at} className="mt-3.5 rounded-card border border-line p-3.5">
+            <div className="text-[0.9375rem] text-muted">{timeText(r)}</div>
+            <div className="text-[1.625rem] font-black tabular-nums">
+              <span className={isHigh(r.sys, r.dia) ? hiMark : ''}>
+                {r.sys}/{r.dia}
+              </span>
+              {Number.isFinite(r.pulse) && <span className="text-base font-normal text-muted">　脈搏 {r.pulse}</span>}
+            </div>
+            {(r.med || r.notes) && (
+              <div className="break-words text-ink-soft">{[r.med, r.notes].filter(Boolean).join('　｜　')}</div>
+            )}
+            {r.row && (
+              <div className="mt-3 grid grid-cols-2 gap-2.5">
+                <button type="button" className={btnQuiet} disabled={busy} onClick={() => setEditing(r.row as number)}>
+                  修改
+                </button>
+                <button type="button" className={btnDanger} disabled={busy} onClick={() => void remove(r)}>
+                  刪除
+                </button>
+              </div>
+            )}
+          </div>
+        ),
+      )}
+
+      {error && (
+        <p role="alert" className="mt-4 rounded-xl bg-danger-bg px-3.5 py-3 font-bold text-danger">
+          {error}
+        </p>
+      )}
+      <button type="button" className={`${btnQuiet} mt-4`} onClick={onClose}>
+        關閉
+      </button>
+    </Modal>
+  )
+}
+
+interface EditProps {
+  record: BpRecord
+  busy: boolean
+  onCancel: () => void
+  onSubmit: (edit: {
+    date: string
+    systolic: string
+    diastolic: string
+    pulse: string
+    medication: string
+    notes: string
+  }) => Promise<unknown>
+}
+
+function EditForm({ record, busy, onCancel, onSubmit }: EditProps) {
+  const [date, setDate] = useState(record.date)
+  const [sys, setSys] = useState(String(record.sys))
+  const [dia, setDia] = useState(String(record.dia))
+  const [pulse, setPulse] = useState(Number.isFinite(record.pulse) ? String(record.pulse) : '')
+  const [med, setMed] = useState(record.med)
+  const [notes, setNotes] = useState(record.notes || '')
+
+  const submit = (e: FormEvent) => {
+    e.preventDefault()
+    void onSubmit({ date, systolic: sys, diastolic: dia, pulse, medication: med, notes })
+  }
+
+  return (
+    <form onSubmit={submit} className="mt-3.5 rounded-card border-2 border-teal px-3.5 pb-3.5">
+      <div className={field}>
+        <label className={fieldLabel} htmlFor="editDate">
+          日期
+        </label>
+        <input id="editDate" className={input} type="date" max={dateText(new Date())} required value={date} onChange={(e) => setDate(e.target.value)} />
+      </div>
+      <div className={field}>
+        <label className={fieldLabel} htmlFor="editSys">
+          收縮壓（高壓）
+        </label>
+        <input id="editSys" className={input} type="number" inputMode="numeric" min={50} max={300} required autoFocus value={sys} onChange={(e) => setSys(e.target.value)} />
+      </div>
+      <div className={field}>
+        <label className={fieldLabel} htmlFor="editDia">
+          舒張壓（低壓）
+        </label>
+        <input id="editDia" className={input} type="number" inputMode="numeric" min={30} max={200} required value={dia} onChange={(e) => setDia(e.target.value)} />
+      </div>
+      <div className={field}>
+        <label className={fieldLabel} htmlFor="editPulse">
+          脈搏
+        </label>
+        <input id="editPulse" className={input} type="number" inputMode="numeric" min={30} max={250} required value={pulse} onChange={(e) => setPulse(e.target.value)} />
+      </div>
+      <div className={field} role="radiogroup" aria-label="有吃藥嗎？">
+        <span className={fieldLabel}>有吃藥嗎？</span>
+        <div className={segWrap}>
+          {['有吃', '沒吃'].map((v) => (
+            <label key={v} className="relative m-0 block">
+              <input className={segInput} type="radio" name="editMed" value={v} required checked={med === v} onChange={() => setMed(v)} />
+              <span className={segLabel}>{v}</span>
+            </label>
+          ))}
+        </div>
+      </div>
+      <div className={field}>
+        <label className={fieldLabel} htmlFor="editNotes">
+          今天的狀況
+        </label>
+        <textarea id="editNotes" className={`${input} min-h-24 resize-y`} maxLength={500} value={notes} onChange={(e) => setNotes(e.target.value)} />
+      </div>
+      <div className="mt-3 grid grid-cols-2 gap-2.5">
+        <button type="submit" className={`${btnPrimary} mt-0 min-h-12`} disabled={busy}>
+          {busy ? '儲存中…' : '儲存修改'}
+        </button>
+        <button type="button" className={btnQuiet} disabled={busy} onClick={onCancel}>
+          取消
+        </button>
+      </div>
+    </form>
+  )
+}

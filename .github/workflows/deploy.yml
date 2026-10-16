@@ -1,0 +1,61 @@
+name: 建置並發佈到 GitHub Pages
+
+# push 到 main 就會自動：測試 → 建置 → 發佈（約 1～2 分鐘）。
+# 其他分支、Pull Request 只會跑測試與建置，確認沒壞，不會發佈。
+on:
+  push:
+  pull_request:
+  workflow_dispatch:
+
+permissions:
+  contents: read
+  pages: write
+  id-token: write
+
+# 連續 push 時，只保留最新一次發佈
+concurrency:
+  group: pages
+  cancel-in-progress: true
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+
+      - run: npm ci
+
+      - name: 型別檢查
+        run: npm run typecheck
+
+      - name: 單元測試
+        run: npm test
+
+      - name: 建置
+        run: npm run build
+
+      # GitHub Pages 找不到網址時會顯示 404.html；舊版的網址（admin.html 等）
+      # 讓它直接開新版網站，網站會自動帶到對應的頁面。
+      - name: 準備 404 頁
+        run: cp dist/index.html dist/404.html
+
+      - uses: actions/upload-pages-artifact@v3
+        with:
+          path: dist
+
+  deploy:
+    # 只有 main 分支才會真的發佈
+    if: github.ref == 'refs/heads/main'
+    needs: build
+    runs-on: ubuntu-latest
+    environment:
+      name: github-pages
+      url: ${{ steps.deployment.outputs.page_url }}
+    steps:
+      - id: deployment
+        uses: actions/deploy-pages@v4

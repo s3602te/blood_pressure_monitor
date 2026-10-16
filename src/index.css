@@ -1,0 +1,114 @@
+@import 'tailwindcss';
+
+/* 血壓記錄 — 設計重點：長輩看得清楚（大字、高對比、大按鈕），
+   唯一的視覺亮點是像血壓計螢幕一樣的深色數字面板，其餘保持安靜。 */
+
+@theme {
+  --font-sans: 'Noto Sans TC', 'PingFang TC', 'Microsoft JhengHei', system-ui, sans-serif;
+
+  --color-ink: #12303a;
+  --color-ink-soft: #1d4551;
+  --color-paper: #f2f6f5;
+  --color-card: #ffffff;
+  --color-line: #d3e0dd;
+  --color-muted: #52666b;
+  --color-teal: #1b7f7a;
+  --color-teal-deep: #14625e;
+  --color-glow: #7fe0d2;
+  --color-sys: #1f5f8b;
+  --color-dia: #2ba38f;
+  --color-warn: #8f4a06;
+  --color-warn-bg: #fbebd6;
+  --color-danger: #b3372a;
+  --color-danger-bg: #fbe4e0;
+  --color-ok: #14625e;
+  --color-ok-bg: #ddf1ec;
+
+  --radius-card: 14px;
+  --radius-panel: 22px;
+
+  --animate-modal-in: modal-in 0.18s ease-out;
+  @keyframes modal-in {
+    from {
+      opacity: 0;
+      transform: scale(0.94);
+    }
+    to {
+      opacity: 1;
+      transform: scale(1);
+    }
+  }
+}
+
+@layer base {
+  /* 手機上下拉、縮小時露出來的底色要跟頁面一致（不然會看到別的顏色） */
+  html {
+    -webkit-text-size-adjust: 100%;
+    background: var(--color-paper);
+    overscroll-behavior-y: none;
+  }
+
+  /* 放大字體：所有文字都用 rem，只要把根字級放大 25%，整個網站就一起放大（按頂欄的「放大字」） */
+  html[data-size='large'] {
+    font-size: 125%;
+  }
+
+  body {
+    margin: 0;
+    background: var(--color-paper);
+    color: var(--color-ink);
+    font-size: 1.125rem;
+    line-height: 1.6;
+  }
+
+  h1,
+  h2,
+  p {
+    margin: 0;
+  }
+
+  :focus-visible {
+    outline: 3px solid var(--color-teal);
+    outline-offset: 2px;
+  }
+
+  [hidden] {
+    display: none !important;
+  }
+}
+
+/* 血壓計螢幕風格的深色面板（背景有一條淡淡的心跳線） */
+@utility readout-panel {
+  position: relative;
+  background-color: var(--color-ink);
+  background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='220' height='40' viewBox='0 0 220 40'%3E%3Cpolyline fill='none' stroke='%237fe0d2' stroke-opacity='.22' stroke-width='2' stroke-linejoin='round' points='0,22 60,22 70,22 78,6 88,36 96,22 150,22 160,14 168,22 220,22'/%3E%3C/svg%3E");
+  background-repeat: no-repeat;
+  background-position: right 14px top 14px;
+}
+
+/* 給醫師看：列印用 A4，一律用標準字 */
+@page {
+  size: A4;
+  margin: 14mm;
+}
+
+@media print {
+  html,
+  html[data-size='large'] {
+    font-size: 100%;
+    background: #fff;
+  }
+
+  body {
+    background: #fff;
+    font-size: 12pt;
+    line-height: 1.45;
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  * {
+    transition: none !important;
+    animation: none !important;
+  }
+}
