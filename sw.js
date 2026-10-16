@@ -1,5 +1,6 @@
 // 網路優先：有網路就拿最新版，沒網路才用快取，避免家人的手機一直看到舊版。
-const CACHE_NAME = 'bp-app-cache-v4';
+// 連瀏覽器本身的暫存（GitHub Pages 預設會留 10 分鐘）也要繞過，不然剛更新完，手機會拿到新的 JS 卻配舊的 CSS。
+const CACHE_NAME = 'bp-app-cache-v5';
 const URLS_TO_CACHE = [
   './',
   './index.html',
@@ -20,7 +21,7 @@ const CACHEABLE_HOSTS = ['cdn.jsdelivr.net', 'fonts.googleapis.com', 'fonts.gsta
 self.addEventListener('install', event => {
   event.waitUntil(
     caches.open(CACHE_NAME)
-      .then(cache => cache.addAll(URLS_TO_CACHE))
+      .then(cache => Promise.all(URLS_TO_CACHE.map(url => cache.add(new Request(url, { cache: 'reload' })))))
       .then(() => self.skipWaiting())
   );
 });
@@ -41,7 +42,7 @@ self.addEventListener('fetch', event => {
   if (url.origin !== location.origin && !CACHEABLE_HOSTS.includes(url.hostname)) return;
 
   event.respondWith(
-    fetch(req)
+    fetch(req, url.origin === location.origin ? { cache: 'no-cache' } : undefined)
       .then(res => {
         if (res.ok || res.type === 'opaque') {
           const copy = res.clone();
