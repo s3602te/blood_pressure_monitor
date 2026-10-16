@@ -1,0 +1,64 @@
+<!DOCTYPE html>
+<html lang="zh-Hant">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <meta name="theme-color" content="#12303a">
+  <link rel="manifest" href="icons/site.webmanifest">
+  <link rel="apple-touch-icon" sizes="180x180" href="icons/apple-touch-icon.png">
+  <link rel="shortcut icon" href="icons/favicon.ico">
+  <link rel="icon" type="image/svg+xml" href="icons/favicon.svg">
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Noto+Sans+TC:wght@300;400;500;700;900&display=swap" rel="stylesheet">
+  <title>登入｜血壓記錄</title>
+  <link rel="stylesheet" href="style.css">
+</head>
+<body>
+  <main class="wrap">
+    <div class="login-hero">
+      <h1 class="page-title">血壓記錄</h1>
+      <p class="page-sub">登入後，只看得到自己的紀錄。</p>
+    </div>
+
+    <div class="seg tabs" role="radiogroup" aria-label="登入或建立帳號">
+      <label><input type="radio" name="mode" value="login" checked><span>登入</span></label>
+      <label><input type="radio" name="mode" value="register"><span>建立帳號</span></label>
+    </div>
+
+    <form id="authForm" autocomplete="on">
+      <div class="field">
+        <label for="username">帳號</label>
+        <input class="input" id="username" name="username" type="text" autocomplete="username" autocapitalize="none" autocorrect="off" spellcheck="false" required>
+      </div>
+
+      <div class="field" data-register hidden>
+        <label for="displayName">顯示名稱 <span class="field-hint">（選填，例如：媽媽）</span></label>
+        <input class="input" id="displayName" name="displayName" type="text" maxlength="20" autocomplete="nickname">
+      </div>
+
+      <div class="field">
+        <label for="password">密碼</label>
+        <div class="password-row">
+          <input class="input" id="password" name="password" type="password" autocomplete="current-password" required>
+          <button type="button" class="password-toggle" id="togglePassword" aria-controls="password">顯示</button>
+        </div>
+      </div>
+
+      <div class="field" data-register hidden>
+        <label for="inviteCode">家人邀請碼 <span class="field-hint">（向管理者詢問）</span></label>
+        <input class="input" id="inviteCode" name="inviteCode" type="text" autocomplete="off" autocapitalize="none" spellcheck="false">
+      </div>
+
+      <button class="btn btn-primary" id="submitBtn" type="submit">登入</button>
+      <p class="status" id="status" role="status" aria-live="polite"></p>
+    </form>
+
+    <p class="fine-print">登入後，這支手機會保持登入 90 天，不用每次輸入。</p>
+  </main>
+
+  <script src="config.js"></script>
+  <script src="auth.js"></script>
+  <script src="login.js"></script>
+</body>
+</html>

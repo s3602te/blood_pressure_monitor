@@ -1,23 +1,66 @@
-function updateStress() {
-    // 使用 querySelector 取得 name 為 "stress" 的 input
-    document.getElementById("stressValue").innerText = document.querySelector('input[name="stress"]').value;
-}
+(function () {
+    registerServiceWorker();
+    if (!requireLogin()) return;
+    renderUser();
 
-document.getElementById("bpForm").addEventListener("submit", function (event) {
-    event.preventDefault(); // 阻止預設的跳轉行為
+    const form = document.getElementById("bpForm");
+    const statusEl = document.getElementById("status");
+    const submitBtn = document.getElementById("submitBtn");
+    const dateInput = document.getElementById("date");
 
-    let formData = new FormData(this); // 獲取表單數據
+    function localToday() {
+        const d = new Date();
+        const mm = String(d.getMonth() + 1).padStart(2, "0");
+        const dd = String(d.getDate()).padStart(2, "0");
+        return `${d.getFullYear()}-${mm}-${dd}`;
+    }
 
-    fetch(this.action, {
-        method: "POST",
-        body: formData
-    })
-        .then(response => response.text())
-        .then(result => {
-            alert("數據已成功儲存到帥哥的 Google 試算表！"); // 彈出成功提示 "數據已成功儲存到 Google 試算表！"
-            document.getElementById("bpForm").reset(); // 清空表單
-        })
-        .catch(error => console.error("發生錯誤: ", error));
-});
+    function setStatus(text, kind) {
+        statusEl.textContent = text || "";
+        statusEl.className = "status" + (kind ? " " + kind : "");
+    }
 
+    const weekdays = ["日", "一", "二", "三", "四", "五", "六"];
+    const now = new Date();
+    document.getElementById("todayText").textContent =
+        `今天是 ${now.getMonth() + 1} 月 ${now.getDate()} 日（週${weekdays[now.getDay()]}）`;
 
+    dateInput.value = localToday();
+    dateInput.max = localToday();
+
+    // 順便確認登入還有效；過期就回登入頁
+    callApi("me").then(result => {
+        if (handleAuthError(result) || !result.ok) return;
+        Session.save({ ...Session.read(), displayName: result.displayName });
+        renderUser();
+    });
+
+    form.addEventListener("submit", async event => {
+        event.preventDefault();
+        if (submitBtn.disabled) return;
+
+        const params = Object.fromEntries(new FormData(form));
+        submitBtn.disabled = true;
+        setStatus("儲存中…", "info");
+
+        const result = await callApi("add", params);
+        submitBtn.disabled = false;
+
+        if (handleAuthError(result)) return;
+        if (!result.ok) {
+            setStatus(result.error || "儲存失敗，請再試一次", "error");
+            return;
+        }
+
+        setStatus(
+            result.duplicate
+                ? "這筆資料剛剛已經儲存過了"
+                : `已儲存：${params.systolic} / ${params.diastolic}，脈搏 ${params.pulse}`,
+            "ok"
+        );
+        const keepDate = dateInput.value;
+        form.reset();
+        dateInput.value = keepDate;
+        document.getElementById("systolic").focus();
+    });
+})();

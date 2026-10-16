@@ -1,158 +1,201 @@
-// TODO: 換成你自己部署後的 Web App GET URL（確保權限設定為「任何人（匿名）皆可存取」）
-const apiURL = "https://script.google.com/macros/s/AKfycbzrFVUBw72vURX3TTmRPmDl-cq6sSHVC_U7aFxWc70_P4RgXZOuECGzkq_Pyh7Nle81Bg/exec";
+(function () {
+    registerServiceWorker();
+    if (!requireLogin()) return;
+    renderUser();
 
-let currentPage = 1;
-const itemsPerPage = 7;
-let aggregatedRecords = [];
-let chartInstance = null;
+    const PER_PAGE = 7;
+    const HIGH_SYS = 135;
+    const HIGH_DIA = 85;
+    const WEEKDAYS = ["日", "一", "二", "三", "四", "五", "六"];
 
-document.addEventListener('DOMContentLoaded', () => {
-  fetch(apiURL)
-    .then(r => r.json())
-    .then(data => {
-      aggregatedRecords = aggregateByDate(data.records);
-      initPagination();
-      renderPage();
-    })
-    .catch(console.error);
-});
+    let days = [];   // 依日期由舊到新
+    let page = 1;    // 第 1 頁 = 最新的 7 天
+    let chart = null;
 
-/**
- * 將同一天的多筆資料聚合成一筆，計算平均值，
- * 並正確處理時區，保證 05/09 不會被算成 05/08
- */
-function aggregateByDate(records) {
-  const map = {};
-  records.forEach(r => {
-    // r = [日期, sys, dia, pulse, stress, med, notes, ...]
-    const d = new Date(r[0]);
-    const yyyy = d.getFullYear();
-    const mm = String(d.getMonth() + 1).padStart(2, '0');
-    const dd = String(d.getDate()).padStart(2, '0');
-    const key   = `${yyyy}-${mm}-${dd}`; // 用於排序
-    const label = `${mm}/${dd}`;         // 用於顯示
+    const $ = id => document.getElementById(id);
 
-    if (!map[key]) {
-      map[key] = { key, label, sys: 0, dia: 0, pulse: 0, stress: 0, count: 0, med: '', notes: '' };
-    }
-    const m = map[key];
-    m.sys    += Number(r[1]);
-    m.dia    += Number(r[2]);
-    m.pulse  += Number(r[3]);
-    m.stress += Number(r[4]);
-    m.count++;
-    m.med    = r[5];
-    m.notes  = r[6];
-  });
+    init();
 
-  return Object.values(map)
-    .sort((a, b) => a.key.localeCompare(b.key))
-    .map(m => [
-      m.label,
-      Math.round(m.sys / m.count),
-      Math.round(m.dia / m.count),
-      Math.round(m.pulse / m.count),
-      Math.round(m.stress / m.count),
-      m.med,
-      m.notes
-    ]);
-}
-
-// 初始化分頁控制：上一頁 / 下一頁 / 下拉跳頁
-function initPagination() {
-  const total = Math.ceil(aggregatedRecords.length / itemsPerPage);
-  const sel   = document.getElementById('pageSelect');
-  sel.innerHTML = '';
-  for (let i = 1; i <= total; i++) {
-    const opt = document.createElement('option');
-    opt.value = i;
-    opt.text  = i;
-    sel.appendChild(opt);
-  }
-  document.getElementById('prevPage').onclick = () => {
-    if (currentPage > 1) renderPage(--currentPage);
-  };
-  document.getElementById('nextPage').onclick = () => {
-    if (currentPage < total) renderPage(++currentPage);
-  };
-  sel.onchange = () => renderPage(currentPage = Number(sel.value));
-}
-
-// 渲染分頁：更新表格、下拉選單及圖表
-function renderPage(page = currentPage) {
-  currentPage = page;
-  const start = (page - 1) * itemsPerPage;
-  const slice = aggregatedRecords.slice(start, start + itemsPerPage);
-
-  // 表格
-  const tbody = document.querySelector('#reportsTable tbody');
-  tbody.innerHTML = '';
-  slice.forEach(row => {
-    const tr = document.createElement('tr');
-    row.forEach(c => {
-      const td = document.createElement('td');
-      td.textContent = c;
-      tr.appendChild(td);
-    });
-    tbody.appendChild(tr);
-  });
-
-  // 更新下拉顯示
-  document.getElementById('pageSelect').value = page;
-
-  // 重繪圖表
-  drawChart(slice);
-}
-
-// 用 Chart.js 繪製柱狀圖，並套用藍/綠 & 黃/橘配色，支援點 legend 切換
-function drawChart(rows) {
-  const labels = rows.map(r => r[0]);
-  const sys    = rows.map(r => r[1]);
-  const dia    = rows.map(r => r[2]);
-  const avgSys = Math.round(sys.reduce((a, b) => a + b, 0) / sys.length);
-  const avgDia = Math.round(dia.reduce((a, b) => a + b, 0) / dia.length);
-
-  labels.push('平均');
-  sys.push(avgSys);
-  dia.push(avgDia);
-
-  const ctx = document.getElementById('bpChart').getContext('2d');
-  if (chartInstance) chartInstance.destroy();
-  chartInstance = new Chart(ctx, {
-    type: 'bar',
-    data: {
-      labels,
-      datasets: [
-        {
-          label: '收縮壓 (SYS)',
-          data: sys,
-          backgroundColor: labels.map(l => l === '平均' ? '#FFD700' : '#007BFF'),
-          borderColor: '#0056b3'
-        },
-        {
-          label: '舒張壓 (DIA)',
-          data: dia,
-          backgroundColor: labels.map(l => l === '平均' ? '#FFA500' : '#28a745'),
-          borderColor: '#218838'
+    async function init() {
+        const result = await callApi("list");
+        $("loadingText").hidden = true;
+        if (handleAuthError(result)) return;
+        if (!result.ok) {
+            $("errorText").textContent = result.error || "讀取失敗，請稍後再試";
+            return;
         }
-      ]
-    },
-    options: {
-      responsive: true,
-      scales: {
-        x: { ticks: { autoSkip: false } },
-        y: { beginAtZero: true }
-      },
-      plugins: {
-        legend: {
-          onClick: (e, item, legend) => {
-            const ci = legend.chart;
-            const meta = ci.getDatasetMeta(item.datasetIndex);
-            meta.hidden = !meta.hidden;
-            ci.update();
-          }
+        days = aggregateByDate(result.records);
+        if (!days.length) {
+            $("emptyState").hidden = false;
+            return;
         }
-      }
+        $("content").hidden = false;
+        setupPager();
+        render();
     }
-  });
-}
+
+    // 同一天多筆合併成一筆：血壓取平均，有任何一筆「有吃」就算有吃，狀況文字合併
+    function aggregateByDate(records) {
+        const map = new Map();
+        records
+            .filter(r => r.date && Number.isFinite(r.sys) && Number.isFinite(r.dia))
+            .sort((a, b) => a.date.localeCompare(b.date) || a.at - b.at)
+            .forEach(r => {
+                if (!map.has(r.date)) {
+                    map.set(r.date, { date: r.date, sys: 0, dia: 0, pulse: 0, pulseCount: 0, count: 0, took: false, notes: [] });
+                }
+                const d = map.get(r.date);
+                d.sys += r.sys;
+                d.dia += r.dia;
+                if (Number.isFinite(r.pulse)) { d.pulse += r.pulse; d.pulseCount++; }
+                d.count++;
+                if (r.med === "有吃") d.took = true;
+                if (r.notes && !d.notes.includes(r.notes)) d.notes.push(r.notes);
+            });
+
+        return [...map.values()].map(d => {
+            const [y, m, day] = d.date.split("-").map(Number);
+            return {
+                label: `${String(m).padStart(2, "0")}/${String(day).padStart(2, "0")}`,
+                weekday: WEEKDAYS[new Date(y, m - 1, day).getDay()],
+                sys: Math.round(d.sys / d.count),
+                dia: Math.round(d.dia / d.count),
+                pulse: d.pulseCount ? Math.round(d.pulse / d.pulseCount) : null,
+                med: d.took ? "有吃" : "沒吃",
+                notes: d.notes.join("；")
+            };
+        });
+    }
+
+    function totalPages() {
+        return Math.ceil(days.length / PER_PAGE);
+    }
+
+    function pageSlice() {
+        const end = days.length - (page - 1) * PER_PAGE;
+        return days.slice(Math.max(0, end - PER_PAGE), end);
+    }
+
+    function setupPager() {
+        const total = totalPages();
+        const select = $("pageSelect");
+        select.innerHTML = "";
+        for (let i = 1; i <= total; i++) {
+            const opt = document.createElement("option");
+            opt.value = i;
+            opt.textContent = i === 1 ? "最新" : `往前第 ${i - 1} 頁`;
+            select.appendChild(opt);
+        }
+        select.onchange = () => { page = Number(select.value); render(); };
+        $("olderPage").onclick = () => { if (page < total) { page++; render(); } };
+        $("newerPage").onclick = () => { if (page > 1) { page--; render(); } };
+    }
+
+    function average(list, key) {
+        const values = list.map(d => d[key]).filter(Number.isFinite);
+        return values.length ? Math.round(values.reduce((a, b) => a + b, 0) / values.length) : "--";
+    }
+
+    function render() {
+        const slice = pageSlice();
+        $("pageSelect").value = page;
+        $("olderPage").disabled = page >= totalPages();
+        $("newerPage").disabled = page <= 1;
+
+        $("summaryCaption").textContent = `這 ${slice.length} 天的平均`;
+        $("avgSys").textContent = average(slice, "sys");
+        $("avgDia").textContent = average(slice, "dia");
+        $("avgPulse").textContent = average(slice, "pulse");
+        $("rangeCaption").textContent = `${slice[0].label} 到 ${slice[slice.length - 1].label}`;
+
+        renderTable(slice);
+        renderChart(slice);
+    }
+
+    function numCell(value, isHigh) {
+        const td = document.createElement("td");
+        td.className = "num";
+        if (isHigh) {
+            const mark = document.createElement("span");
+            mark.className = "hi";
+            mark.textContent = value;
+            td.appendChild(mark);
+        } else {
+            td.textContent = value ?? "--";
+        }
+        return td;
+    }
+
+    function renderTable(slice) {
+        const body = $("logBody");
+        body.innerHTML = "";
+        [...slice].reverse().forEach(d => {
+            const tr = document.createElement("tr");
+
+            const dateTd = document.createElement("td");
+            const dateEl = document.createElement("div");
+            dateEl.className = "date";
+            dateEl.textContent = d.label;
+            const weekday = document.createElement("span");
+            weekday.className = "weekday";
+            weekday.textContent = `週${d.weekday}`;
+            dateEl.appendChild(weekday);
+            dateTd.appendChild(dateEl);
+            if (d.notes) {
+                const note = document.createElement("div");
+                note.className = "note";
+                note.textContent = d.notes; // 用 textContent，避免使用者輸入的文字被當成 HTML
+                dateTd.appendChild(note);
+            }
+            tr.appendChild(dateTd);
+
+            tr.appendChild(numCell(d.sys, d.sys >= HIGH_SYS));
+            tr.appendChild(numCell(d.dia, d.dia >= HIGH_DIA));
+            tr.appendChild(numCell(d.pulse, false));
+
+            const medTd = document.createElement("td");
+            medTd.textContent = d.med;
+            tr.appendChild(medTd);
+
+            body.appendChild(tr);
+        });
+    }
+
+    function renderChart(slice) {
+        if (typeof Chart === "undefined") {
+            $("bpChart").parentElement.hidden = true; // 離線且沒快取到圖表套件時，只顯示表格
+            return;
+        }
+        if (chart) chart.destroy();
+        Chart.defaults.font.family = '"Noto Sans TC", "PingFang TC", "Microsoft JhengHei", sans-serif';
+
+        const line = (label, data, color) => ({
+            label, data,
+            borderColor: color,
+            backgroundColor: color,
+            borderWidth: 3,
+            pointRadius: 4,
+            tension: 0.25
+        });
+
+        chart = new Chart($("bpChart").getContext("2d"), {
+            type: "line",
+            data: {
+                labels: slice.map(d => d.label),
+                datasets: [
+                    line("收縮壓", slice.map(d => d.sys), "#1f5f8b"),
+                    line("舒張壓", slice.map(d => d.dia), "#2ba38f")
+                ]
+            },
+            options: {
+                responsive: true,
+                maintainAspectRatio: false,
+                scales: {
+                    x: { ticks: { autoSkip: false, font: { size: 13 } } },
+                    y: { suggestedMin: 50, suggestedMax: 160, ticks: { font: { size: 13 } } }
+                },
+                plugins: { legend: { labels: { usePointStyle: true, font: { size: 14 } } } }
+            }
+        });
+    }
+})();

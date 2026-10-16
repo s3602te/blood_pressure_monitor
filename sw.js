@@ -1,16 +1,19 @@
-// sw.js
-const CACHE_NAME = 'bp-app-cache-v1';
+// 網路優先：有網路就拿最新版，沒網路才用快取，避免家人的手機一直看到舊版。
+const CACHE_NAME = 'bp-app-cache-v2';
 const URLS_TO_CACHE = [
   './',
   './index.html',
+  './login.html',
   './bp_reports.html',
   './style.css',
+  './config.js',
+  './auth.js',
+  './login.js',
   './script.js',
   './bp_report.js',
-  './manifest.json',
-  // 如有其他外部資源，也可加入 CDN URL：
-  'https://cdn.jsdelivr.net/npm/chart.js'
+  './icons/site.webmanifest'
 ];
+const CACHEABLE_HOSTS = ['cdn.jsdelivr.net', 'fonts.googleapis.com', 'fonts.gstatic.com'];
 
 self.addEventListener('install', event => {
   event.waitUntil(
@@ -22,20 +25,30 @@ self.addEventListener('install', event => {
 
 self.addEventListener('activate', event => {
   event.waitUntil(
-    caches.keys().then(keys =>
-      Promise.all(
-        keys
-          .filter(key => key !== CACHE_NAME)
-          .map(key => caches.delete(key))
-      )
-    )
+    caches.keys()
+      .then(keys => Promise.all(keys.filter(k => k !== CACHE_NAME).map(k => caches.delete(k))))
+      .then(() => self.clients.claim())
   );
-  self.clients.claim();
 });
 
 self.addEventListener('fetch', event => {
+  const req = event.request;
+  if (req.method !== 'GET') return; // 登入、儲存、讀取資料都是 POST，一律直接連線，不經快取
+
+  const url = new URL(req.url);
+  if (url.origin !== location.origin && !CACHEABLE_HOSTS.includes(url.hostname)) return;
+
   event.respondWith(
-    caches.match(event.request)
-      .then(resp => resp || fetch(event.request))
+    fetch(req)
+      .then(res => {
+        if (res.ok || res.type === 'opaque') {
+          const copy = res.clone();
+          caches.open(CACHE_NAME).then(cache => cache.put(req, copy));
+        }
+        return res;
+      })
+      .catch(() =>
+        caches.match(req).then(hit => hit || (req.mode === 'navigate' ? caches.match('./index.html') : Response.error()))
+      )
   );
 });

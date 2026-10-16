@@ -1,0 +1,24 @@
+# ── 機密與備份：絕對不要上傳到公開 repo ──────────────────
+# Apps Script 的本機備份（含 Discord webhook、試算表 ID）
+放在google apps script的東西*
+*.gs.bak
+*.gs.local
+
+# 金鑰、環境變數、憑證
+.env
+.env.*
+*.key
+*.pem
+*.secret
+secrets/
+.clasp.json
+.clasprc.json
+
+# ── 一般雜項 ────────────────────────────────────────────
+tesl
+node_modules/
+*.log
+.DS_Store
+Thumbs.db
+.vscode/
+.claude/

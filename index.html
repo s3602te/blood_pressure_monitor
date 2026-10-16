@@ -1,83 +1,85 @@
 <!DOCTYPE html>
-<html lang="zh">
+<html lang="zh-Hant">
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
-
-  <!-- PWA 必要：manifest -->
+  <meta name="theme-color" content="#12303a">
   <link rel="manifest" href="icons/site.webmanifest">
-  <meta name="theme-color" content="#007BFF">
-
-  <!-- RealFaviconGenerator 給的 Icon 標籤 -->
   <link rel="apple-touch-icon" sizes="180x180" href="icons/apple-touch-icon.png">
-  <link rel="icon" type="image/png" sizes="32x32" href="icons/favicon-32x32.png">
-  <link rel="icon" type="image/png" sizes="16x16" href="icons/favicon-16x16.png">
   <link rel="shortcut icon" href="icons/favicon.ico">
   <link rel="icon" type="image/svg+xml" href="icons/favicon.svg">
-  <!-- 如有 browserconfig.xml，也一併加上： -->
-  <meta name="msapplication-config" content="icons/browserconfig.xml">
-
-  <title>血壓監測表</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Noto+Sans+TC:wght@300;400;500;700;900&display=swap" rel="stylesheet">
+  <title>記錄血壓｜血壓記錄</title>
   <link rel="stylesheet" href="style.css">
 </head>
-
-<body>
-    <div class="container">
-        <h2>每日血壓與脈搏記錄</h2>
-        <!-- 注意將 action 指向你的 Google Apps Script API 網址 -->
-        <form id="bpForm"
-            action="https://script.google.com/macros/s/AKfycbzrFVUBw72vURX3TTmRPmDl-cq6sSHVC_U7aFxWc70_P4RgXZOuECGzkq_Pyh7Nle81Bg/exec"
-            method="POST">
-            <label>日期（必填）：</label>
-            <input type="date" name="date" required>
-
-            <label>收縮壓 SYS (mmHg)（必填）：</label>
-            <input type="number" name="systolic" required>
-
-            <label>舒張壓 DIA (mmHg)（必填）：</label>
-            <input type="number" name="diastolic" required>
-
-            <label>脈搏 PULSE (次/分鐘)（必填）：</label>
-            <input type="number" name="pulse" required>
-
-            <label>今日狀況（可選填）：</label>
-            <textarea name="notes" placeholder="請輸入您的感受，如：壓力大、心情好等"></textarea>
-
-            <!-- 2025-05-28先隱藏 -->
-            <!-- <div class="slider-container">
-                <label for="stress">緊張程度 (0-10)（必填）：</label>
-                <input type="range" name="stress" min="0" max="10" step="1" value="0" required oninput="updateStress()">
-                <span id="stressValue">0</span>
-            </div> -->
-
-            <label>吃藥狀況（必填）：</label>
-            <div class="radio-container">
-                <div class="radio-item">
-                    <div>有吃</div>
-                    <input type="radio" name="medication" value="有吃" required>
-                </div>
-                <div class="radio-item">
-                    <div>沒吃</div>
-                    <input type="radio" name="medication" value="沒吃" required>
-                </div>
-            </div>
-
-            <input type="submit" value="送出">
-            <button onclick="location.href='bp_reports.html'">查看血壓歷史紀錄</button>
-        </form>
-        <p id="output"></p>
+<body class="has-nav">
+  <header class="topbar">
+    <div class="wrap topbar-in">
+      <span class="brand">血壓記錄</span>
+      <div class="who">
+        <span id="userName"></span>
+        <button type="button" class="link-btn" id="logoutBtn">登出</button>
+      </div>
     </div>
+  </header>
 
-    <!-- 註冊 Service Worker -->
-    <script>
-        if ('serviceWorker' in navigator) {
-            navigator.serviceWorker.register('./sw.js')
-                .then(() => console.log('SW registered'))
-                .catch(err => console.error('SW failed:', err));
-        }
-    </script>
+  <main class="wrap">
+    <h1 class="page-title">記錄今天的血壓</h1>
+    <p class="page-sub" id="todayText"></p>
 
-    <script src="script.js"></script>
+    <form id="bpForm">
+      <div class="readout">
+        <p class="readout-caption">血壓（mmHg）</p>
+        <div class="readout-grid">
+          <div class="readout-cell">
+            <label for="systolic">收縮壓（高壓）</label>
+            <input id="systolic" name="systolic" type="number" inputmode="numeric" min="50" max="300" placeholder="120" required>
+          </div>
+          <span class="readout-slash" aria-hidden="true">/</span>
+          <div class="readout-cell">
+            <label for="diastolic">舒張壓（低壓）</label>
+            <input id="diastolic" name="diastolic" type="number" inputmode="numeric" min="30" max="200" placeholder="80" required>
+          </div>
+        </div>
+        <div class="readout-pulse">
+          <label for="pulse">脈搏</label>
+          <input id="pulse" name="pulse" type="number" inputmode="numeric" min="30" max="250" placeholder="70" required>
+          <span>次／分鐘</span>
+        </div>
+      </div>
+
+      <div class="field">
+        <label for="date">量測日期</label>
+        <input class="input" id="date" name="date" type="date" required>
+      </div>
+
+      <div class="field" role="radiogroup" aria-labelledby="medLabel">
+        <span class="label" id="medLabel">今天有吃藥嗎？</span>
+        <div class="seg">
+          <label><input type="radio" name="medication" value="有吃" required><span>有吃</span></label>
+          <label><input type="radio" name="medication" value="沒吃" required><span>沒吃</span></label>
+        </div>
+      </div>
+
+      <div class="field">
+        <label for="notes">今天的狀況 <span class="field-hint">（選填）</span></label>
+        <textarea class="input" id="notes" name="notes" maxlength="500" placeholder="例如：心情好、有點累、壓力大"></textarea>
+      </div>
+
+      <button class="btn btn-primary" id="submitBtn" type="submit">儲存紀錄</button>
+      <p class="status" id="status" role="status" aria-live="polite"></p>
+    </form>
+  </main>
+
+  <nav class="nav-bottom" aria-label="主要頁面">
+    <a href="index.html" aria-current="page">記錄血壓</a>
+    <a href="bp_reports.html">歷史紀錄</a>
+  </nav>
+
+  <script src="config.js"></script>
+  <script src="auth.js"></script>
+  <script src="script.js"></script>
 </body>
-
 </html>
