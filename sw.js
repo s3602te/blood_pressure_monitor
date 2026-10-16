@@ -1,16 +1,18 @@
 // 網路優先：有網路就拿最新版，沒網路才用快取，避免家人的手機一直看到舊版。
-const CACHE_NAME = 'bp-app-cache-v2';
+const CACHE_NAME = 'bp-app-cache-v3';
 const URLS_TO_CACHE = [
   './',
   './index.html',
   './login.html',
   './bp_reports.html',
+  './doctor.html',
   './style.css',
   './config.js',
   './auth.js',
   './login.js',
   './script.js',
   './bp_report.js',
+  './doctor.js',
   './icons/site.webmanifest'
 ];
 const CACHEABLE_HOSTS = ['cdn.jsdelivr.net', 'fonts.googleapis.com', 'fonts.gstatic.com'];

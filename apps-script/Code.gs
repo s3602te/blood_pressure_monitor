@@ -17,7 +17,7 @@ const LEGACY_SHEET = '工作表1';
 const ACCOUNT_HEADERS = ['帳號', '顯示名稱', '資料分頁', 'salt', '密碼雜湊', '建立時間'];
 const DATA_HEADERS = ['日期', '收縮壓', '舒張壓', '脈搏', '緊張程度', '吃藥狀況', '今日狀況', '建立時間', '修改時間'];
 
-const TOKEN_DAYS = 90;        // 登入一次，這台裝置可保持登入的天數
+const TOKEN_DAYS = 365;       // 登入一次，這台裝置可保持登入的天數；每天使用會自動續期，等於不會被登出
 const HASH_ROUNDS = 300;      // 密碼雜湊重複次數
 const MAX_LOGIN_FAILS = 5;    // 同一帳號連續輸錯幾次就暫停
 const MAX_INVITE_FAILS = 10;  // 邀請碼連續輸錯幾次就暫停
@@ -30,7 +30,7 @@ const SITE_URL = 'https://s3602te.github.io/blood_pressure_monitor/';
 /* ───────────── 入口 ───────────── */
 
 // 會寫入資料的動作才需要搶鎖；單純讀取不用排隊，同時開多個頁面也不會互相等
-const WRITE_ACTIONS = ['register', 'login', 'add', 'adminReset'];
+const WRITE_ACTIONS = ['register', 'login', 'add', 'adminList', 'adminReset'];
 
 function doPost(e) {
   const p = (e && e.parameter) || {};
@@ -165,7 +165,6 @@ function addRecord_(p) {
   const pulse = toInt_(p.pulse, 30, 250);
   const medication = String(p.medication || '');
   const notes = String(p.notes || '').trim().slice(0, 500);
-  const stress = (p.stress === undefined || p.stress === '') ? '' : toInt_(p.stress, 0, 10);
 
   if (!validDate_(date)) return fail_('日期格式不正確');
   if (date > Utilities.formatDate(new Date(), sheetTz_(), 'yyyy-MM-dd')) return fail_('日期不能是未來的日子');
@@ -189,7 +188,7 @@ function addRecord_(p) {
     }
   }
 
-  sheet.appendRow([date, systolic, diastolic, pulse, stress, medication, plainText_(notes), now, now]);
+  sheet.appendRow([date, systolic, diastolic, pulse, '', medication, plainText_(notes), now, now]);
   if (requestKey) cache.put(requestKey, '1', 600);
   return { ok: true };
 }
@@ -517,6 +516,14 @@ function authenticate_(token) {
   const v = prop_('tok_' + sha256_(String(token)));
   if (!v) return null;
   const i = v.lastIndexOf('|');
-  if (Number(v.slice(i + 1)) < Date.now()) return null;
-  return findAccount_(v.slice(0, i));
+  const expires = Number(v.slice(i + 1));
+  const now = Date.now();
+  if (expires < now) return null;
+  const acc = findAccount_(v.slice(0, i));
+  // 每天使用就自動延長期限（一天最多寫入一次），常用的裝置不會被登出
+  if (acc && expires - now < (TOKEN_DAYS - 1) * 86400000) {
+    PropertiesService.getScriptProperties().setProperty(
+      'tok_' + sha256_(String(token)), v.slice(0, i) + '|' + (now + TOKEN_DAYS * 86400000));
+  }
+  return acc;
 }

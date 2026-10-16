@@ -1,5 +1,5 @@
 // 登入狀態與 API 呼叫（所有頁面共用）。
-// 只在這台裝置存「登入權杖」，不存密碼；權杖由後端發出，90 天內有效。
+// 只在這台裝置存「登入權杖」，不存密碼；權杖由後端發出，一年有效，每天使用會自動續期。
 const Session = {
     KEY: "bp_session",
     read() {
@@ -103,7 +103,7 @@ function renderUser() {
     const nameEl = document.getElementById("userName");
     if (nameEl && session) nameEl.textContent = session.displayName || session.username || "";
     const btn = document.getElementById("logoutBtn");
-    if (btn) btn.onclick = logout;
+    if (btn) btn.onclick = () => { if (confirm("確定要登出嗎？\n登出後要重新輸入帳號和密碼。")) logout(); };
 }
 
 function registerServiceWorker() {

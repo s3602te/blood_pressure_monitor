@@ -1,0 +1,99 @@
+<!DOCTYPE html>
+<html lang="zh-Hant">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <meta name="theme-color" content="#f2f6f5">
+  <link rel="manifest" href="icons/site.webmanifest">
+  <link rel="apple-touch-icon" sizes="180x180" href="icons/apple-touch-icon.png">
+  <link rel="shortcut icon" href="icons/favicon.ico">
+  <link rel="icon" type="image/svg+xml" href="icons/favicon.svg">
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Noto+Sans+TC:wght@300;400;500;700;900&display=swap" rel="stylesheet">
+  <title>給醫師看｜血壓記錄</title>
+  <link rel="stylesheet" href="style.css">
+</head>
+<body class="has-nav">
+  <header class="topbar no-print">
+    <div class="wrap topbar-in">
+      <span class="brand">血壓記錄</span>
+      <div class="who">
+        <span id="userName"></span>
+        <button type="button" class="link-btn" id="logoutBtn">登出</button>
+      </div>
+    </div>
+  </header>
+
+  <main class="wrap report-wrap">
+    <div class="no-print">
+      <h1 class="page-title">給醫師看</h1>
+      <p class="page-sub">選一段時間，把這段期間的血壓整理給醫師看。</p>
+
+      <div class="field" role="radiogroup" aria-label="選擇時間範圍">
+        <div class="seg seg-4" id="rangeSeg">
+          <label><input type="radio" name="range" value="7" checked><span>近 7 天</span></label>
+          <label><input type="radio" name="range" value="30"><span>近 30 天</span></label>
+          <label><input type="radio" name="range" value="90"><span>近 90 天</span></label>
+          <label><input type="radio" name="range" value="custom"><span>自訂</span></label>
+        </div>
+      </div>
+
+      <div class="range-custom" id="customRange" hidden>
+        <div class="field">
+          <label for="fromDate">從</label>
+          <input class="input" id="fromDate" type="date">
+        </div>
+        <div class="field">
+          <label for="toDate">到</label>
+          <input class="input" id="toDate" type="date">
+        </div>
+      </div>
+
+      <p class="page-sub" id="loadingText">讀取中…</p>
+      <p class="status error" id="errorText" role="alert"></p>
+    </div>
+
+    <section id="report" hidden>
+      <div class="report-head">
+        <h2 class="report-title">血壓紀錄</h2>
+        <p class="report-meta"><span id="reportName"></span>　<span id="reportRange"></span></p>
+      </div>
+
+      <div class="stat-grid" id="statGrid"></div>
+
+      <table class="log report-table">
+        <thead>
+          <tr>
+            <th scope="col">日期</th>
+            <th scope="col">早上</th>
+            <th scope="col">晚上</th>
+            <th scope="col">吃藥</th>
+          </tr>
+        </thead>
+        <tbody id="reportBody"></tbody>
+      </table>
+
+      <p class="legend-note">黃底數字高於家庭血壓參考值 135 / 85 mmHg，僅供參考，請依醫師指示判斷。早上＝中午 12 點前記錄，晚上＝中午 12 點後記錄。血壓數字後方括號為脈搏（次／分鐘）。</p>
+      <p class="legend-note" id="reportStamp"></p>
+
+      <button type="button" class="btn btn-primary no-print" id="printBtn">列印／存成 PDF</button>
+    </section>
+
+    <div class="empty no-print" id="emptyState" hidden>
+      <p><strong>這段時間沒有紀錄</strong></p>
+      <p>換一個時間範圍試試看。</p>
+    </div>
+  </main>
+
+  <nav class="nav-bottom no-print" aria-label="主要頁面">
+    <a href="index.html">記錄血壓</a>
+    <a href="bp_reports.html">歷史紀錄</a>
+    <a href="doctor.html" aria-current="page">給醫師看</a>
+  </nav>
+
+  <script src="config.js"></script>
+  <script src="auth.js"></script>
+  <script src="doctor.js"></script>
+</body>
+</html>
