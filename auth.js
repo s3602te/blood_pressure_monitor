@@ -1,4 +1,7 @@
 // 登入狀態與 API 呼叫（所有頁面共用）。
+// 改了 CSS／JS 之後，HTML 裡檔名後面的 ?v= 數字、這裡的 APP_VERSION、style.css 的 --css-ver 要一起加一，
+// 手機才不會拿到「新的程式配舊的樣式」。
+const APP_VERSION = "6";
 // 只在這台裝置存「登入權杖」，不存密碼；權杖由後端發出，一年有效，每天使用會自動續期。
 const Session = {
     KEY: "bp_session",
@@ -200,6 +203,12 @@ function renderUser() {
         const label = () => { fontBtn.textContent = FontSize.isLarge() ? "標準字" : "放大字"; };
         label();
         fontBtn.onclick = () => { FontSize.set(!FontSize.isLarge()); label(); };
+    }
+
+    const verEl = document.getElementById("appVer");
+    if (verEl) {
+        const cssVer = getComputedStyle(document.documentElement).getPropertyValue("--css-ver").replace(/["\s]/g, "");
+        verEl.textContent = cssVer === APP_VERSION ? `版本 ${APP_VERSION}` : `版本 ${APP_VERSION}（樣式 ${cssVer || "沒有"}，不一致）`;
     }
 
     const btn = document.getElementById("logoutBtn");

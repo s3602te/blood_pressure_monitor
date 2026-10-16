@@ -1,6 +1,6 @@
 // 網路優先：有網路就拿最新版，沒網路才用快取，避免家人的手機一直看到舊版。
 // 連瀏覽器本身的暫存（GitHub Pages 預設會留 10 分鐘）也要繞過，不然剛更新完，手機會拿到新的 JS 卻配舊的 CSS。
-const CACHE_NAME = 'bp-app-cache-v5';
+const CACHE_NAME = 'bp-app-cache-v6';
 const URLS_TO_CACHE = [
   './',
   './index.html',
@@ -51,7 +51,7 @@ self.addEventListener('fetch', event => {
         return res;
       })
       .catch(() =>
-        caches.match(req).then(hit => hit || (req.mode === 'navigate' ? caches.match('./index.html') : Response.error()))
+        caches.match(req, { ignoreSearch: true }).then(hit => hit || (req.mode === 'navigate' ? caches.match('./index.html') : Response.error()))
       )
   );
 });
