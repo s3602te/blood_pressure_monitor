@@ -152,6 +152,13 @@ function addRecord_(p) {
   const acc = authenticate_(p.token);
   if (!acc) return authFail_();
 
+  // 每次填寫表單有一個專屬編號；同一個編號只會存一次。
+  // 就算網路不穩、手機重送或使用者隔了幾秒再按，也不會存成兩筆。
+  const requestId = String(p.requestId || '').slice(0, 64);
+  const cache = CacheService.getScriptCache();
+  const requestKey = requestId ? 'req_' + acc.username.toLowerCase() + '_' + requestId : '';
+  if (requestKey && cache.get(requestKey)) return { ok: true, duplicate: true };
+
   const date = String(p.date || '');
   const systolic = toInt_(p.systolic, 50, 300);
   const diastolic = toInt_(p.diastolic, 30, 200);
@@ -160,7 +167,8 @@ function addRecord_(p) {
   const notes = String(p.notes || '').trim().slice(0, 500);
   const stress = (p.stress === undefined || p.stress === '') ? '' : toInt_(p.stress, 0, 10);
 
-  if (!/^\d{4}-\d{2}-\d{2}$/.test(date)) return fail_('日期格式不正確');
+  if (!validDate_(date)) return fail_('日期格式不正確');
+  if (date > Utilities.formatDate(new Date(), sheetTz_(), 'yyyy-MM-dd')) return fail_('日期不能是未來的日子');
   if (systolic === null) return fail_('收縮壓請輸入 50 到 300 之間的數字');
   if (diastolic === null) return fail_('舒張壓請輸入 30 到 200 之間的數字');
   if (pulse === null) return fail_('脈搏請輸入 30 到 250 之間的數字');
@@ -181,8 +189,21 @@ function addRecord_(p) {
     }
   }
 
-  sheet.appendRow([date, systolic, diastolic, pulse, stress, medication, notes, now, now]);
+  sheet.appendRow([date, systolic, diastolic, pulse, stress, medication, plainText_(notes), now, now]);
+  if (requestKey) cache.put(requestKey, '1', 600);
   return { ok: true };
+}
+
+// 以 = + - @ 開頭的文字，試算表會當成公式執行（可能讀到別人的資料），所以加上單引號強制當純文字
+function plainText_(text) {
+  return /^[=+\-@]/.test(text) ? "'" + text : text;
+}
+
+function validDate_(text) {
+  if (!/^\d{4}-\d{2}-\d{2}$/.test(text)) return false;
+  const parts = text.split('-').map(Number);
+  const d = new Date(parts[0], parts[1] - 1, parts[2]);
+  return d.getFullYear() === parts[0] && d.getMonth() === parts[1] - 1 && d.getDate() === parts[2];
 }
 
 function listRecords_(p) {
@@ -351,11 +372,13 @@ function toInt_(value, min, max) {
 
 // 時區每次執行只查一次（以前每筆紀錄都重新打開試算表查，紀錄一多就很慢）
 let sheetTimeZone_ = null;
+function sheetTz_() {
+  if (!sheetTimeZone_) sheetTimeZone_ = spreadsheet_().getSpreadsheetTimeZone();
+  return sheetTimeZone_;
+}
+
 function dateText_(value) {
-  if (value instanceof Date) {
-    if (!sheetTimeZone_) sheetTimeZone_ = spreadsheet_().getSpreadsheetTimeZone();
-    return Utilities.formatDate(value, sheetTimeZone_, 'yyyy-MM-dd');
-  }
+  if (value instanceof Date) return Utilities.formatDate(value, sheetTz_(), 'yyyy-MM-dd');
   return String(value).slice(0, 10);
 }
 

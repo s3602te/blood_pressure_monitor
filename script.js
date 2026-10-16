@@ -12,6 +12,12 @@
     const dialogOk = document.getElementById("resultOk");
     let closeTimer = null;
 
+    // 每次填寫一個專屬編號，送出失敗重試用同一個，伺服器才認得出「這是同一筆」；成功後換新的
+    const newRequestId = () => (window.crypto && crypto.randomUUID)
+        ? crypto.randomUUID()
+        : Date.now().toString(36) + Math.random().toString(36).slice(2);
+    let requestId = newRequestId();
+
     function localToday() {
         const d = new Date();
         const mm = String(d.getMonth() + 1).padStart(2, "0");
@@ -57,7 +63,7 @@
         event.preventDefault();
         if (submitBtn.disabled) return;
 
-        const params = Object.fromEntries(new FormData(form));
+        const params = { ...Object.fromEntries(new FormData(form)), requestId };
         submitBtn.disabled = true;
         submitBtn.textContent = "儲存中…";
 
@@ -76,6 +82,7 @@
         } else {
             showResult("ok", "已儲存", `收縮壓 ${params.systolic} / 舒張壓 ${params.diastolic}，脈搏 ${params.pulse}`);
         }
+        requestId = newRequestId();
         refreshRecords(); // 背景更新歷史紀錄，不用等
         const keepDate = dateInput.value;
         form.reset();
