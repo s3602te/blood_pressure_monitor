@@ -4,9 +4,13 @@
     renderUser();
 
     const form = document.getElementById("bpForm");
-    const statusEl = document.getElementById("status");
     const submitBtn = document.getElementById("submitBtn");
     const dateInput = document.getElementById("date");
+    const dialog = document.getElementById("resultDialog");
+    const dialogTitle = document.getElementById("resultTitle");
+    const dialogDetail = document.getElementById("resultDetail");
+    const dialogOk = document.getElementById("resultOk");
+    let closeTimer = null;
 
     function localToday() {
         const d = new Date();
@@ -15,10 +19,25 @@
         return `${d.getFullYear()}-${mm}-${dd}`;
     }
 
-    function setStatus(text, kind) {
-        statusEl.textContent = text || "";
-        statusEl.className = "status" + (kind ? " " + kind : "");
+    // 結果用畫面正中央的視窗通知，小螢幕不用往下捲也看得到
+    function showResult(kind, title, detail) {
+        dialog.dataset.kind = kind;
+        dialogTitle.textContent = title;
+        dialogDetail.textContent = detail || "";
+        dialog.hidden = false;
+        dialogOk.focus();
+        clearTimeout(closeTimer);
+        if (kind === "ok") closeTimer = setTimeout(closeResult, 4000); // 成功 4 秒後自動關閉；失敗要按「好」才關
     }
+
+    function closeResult() {
+        clearTimeout(closeTimer);
+        dialog.hidden = true;
+    }
+
+    dialogOk.addEventListener("click", closeResult);
+    dialog.addEventListener("click", event => { if (event.target === dialog) closeResult(); });
+    document.addEventListener("keydown", event => { if (event.key === "Escape" && !dialog.hidden) closeResult(); });
 
     const weekdays = ["日", "一", "二", "三", "四", "五", "六"];
     const now = new Date();
@@ -40,27 +59,26 @@
 
         const params = Object.fromEntries(new FormData(form));
         submitBtn.disabled = true;
-        setStatus("儲存中…", "info");
+        submitBtn.textContent = "儲存中…";
 
         const result = await callApi("add", params);
         submitBtn.disabled = false;
+        submitBtn.textContent = "儲存紀錄";
 
         if (handleAuthError(result)) return;
         if (!result.ok) {
-            setStatus(result.error || "儲存失敗，請再試一次", "error");
+            showResult("error", "沒有儲存成功", result.error || "請再試一次");
             return;
         }
 
-        setStatus(
-            result.duplicate
-                ? "這筆資料剛剛已經儲存過了"
-                : `已儲存：${params.systolic} / ${params.diastolic}，脈搏 ${params.pulse}`,
-            "ok"
-        );
+        if (result.duplicate) {
+            showResult("ok", "已經儲存過了", "這筆資料剛剛已經存好，不會重複記錄。");
+        } else {
+            showResult("ok", "已儲存", `收縮壓 ${params.systolic} / 舒張壓 ${params.diastolic}，脈搏 ${params.pulse}`);
+        }
         refreshRecords(); // 背景更新歷史紀錄，不用等
         const keepDate = dateInput.value;
         form.reset();
         dateInput.value = keepDate;
-        document.getElementById("systolic").focus();
     });
 })();

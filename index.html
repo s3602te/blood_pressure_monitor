@@ -3,7 +3,7 @@
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <meta name="theme-color" content="#12303a">
+  <meta name="theme-color" content="#f2f6f5">
   <link rel="manifest" href="icons/site.webmanifest">
   <link rel="apple-touch-icon" sizes="180x180" href="icons/apple-touch-icon.png">
   <link rel="shortcut icon" href="icons/favicon.ico">
@@ -69,9 +69,17 @@
       </div>
 
       <button class="btn btn-primary" id="submitBtn" type="submit">儲存紀錄</button>
-      <p class="status" id="status" role="status" aria-live="polite"></p>
     </form>
   </main>
+
+  <div class="modal" id="resultDialog" role="alertdialog" aria-modal="true" aria-labelledby="resultTitle" aria-describedby="resultDetail" hidden>
+    <div class="modal-card">
+      <div class="modal-icon" aria-hidden="true"></div>
+      <h2 id="resultTitle"></h2>
+      <p id="resultDetail"></p>
+      <button type="button" class="btn btn-primary" id="resultOk">好</button>
+    </div>
+  </div>
 
   <nav class="nav-bottom" aria-label="主要頁面">
     <a href="index.html" aria-current="page">記錄血壓</a>

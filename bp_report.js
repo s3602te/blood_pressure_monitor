@@ -98,7 +98,10 @@
         for (let i = 1; i <= total; i++) {
             const opt = document.createElement("option");
             opt.value = i;
-            opt.textContent = i === 1 ? "最新" : `往前第 ${i - 1} 頁`;
+            // 用日期範圍當選項，一看就知道是哪一段；最新的一段排第一個
+            const end = days.length - (i - 1) * PER_PAGE;
+            const start = Math.max(0, end - PER_PAGE);
+            opt.textContent = `${i === 1 ? "最新　" : ""}${days[start].label} 到 ${days[end - 1].label}`;
             select.appendChild(opt);
         }
         select.onchange = () => { page = Number(select.value); render(); };
