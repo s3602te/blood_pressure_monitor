@@ -86,13 +86,20 @@ function register_(p) {
   if (legacyOwner && legacyOwner.toLowerCase() === username.toLowerCase() && legacyFree) {
     sheetName = LEGACY_SHEET; // 接手舊資料
   } else {
-    if (ss.getSheetByName(sheetName)) return fail_('這個帳號名稱不能使用');
-    createDataSheet_(ss, sheetName);
+    const existing = ss.getSheetByName(sheetName);
+    if (existing) {
+      // 上次建立到一半留下的空分頁可以重用；已經有人用或有資料的分頁不行
+      if (isSheetInUse_(accounts, sheetName) || existing.getLastRow() > 1) {
+        return fail_('這個帳號名稱不能使用');
+      }
+    } else {
+      createDataSheet_(ss, sheetName);
+    }
   }
 
   const salt = sha256_(Utilities.getUuid()).slice(0, 16);
   const displayName = String(p.displayName || '').trim().slice(0, 20) || username;
-  accounts.appendRow([username, displayName, sheetName, salt, hashPassword_(salt, password), new Date()]);
+  appendAccountRow_(accounts, [username, displayName, sheetName, salt, hashPassword_(salt, password), new Date()]);
 
   return { ok: true, token: issueToken_(username), username: username, displayName: displayName };
 }
@@ -317,6 +324,15 @@ function accountSheet_() {
     sheet.getRange(1, 1, 1, ACCOUNT_HEADERS.length).setFontWeight('bold');
   }
   return sheet;
+}
+
+// 帳號、分頁名稱、salt、雜湊一律存成純文字，避免電話開頭的 0 被試算表吃掉
+function appendAccountRow_(sheet, values) {
+  const row = sheet.getLastRow() + 1;
+  sheet.getRange(row, 1, 1, 5).setNumberFormat('@');
+  sheet.getRange(row, 1, 1, values.length).setValues([values.map(function (v, i) {
+    return i < 5 ? String(v) : v;
+  })]);
 }
 
 function createDataSheet_(ss, name) {
