@@ -29,12 +29,20 @@ const SITE_URL = 'https://s3602te.github.io/blood_pressure_monitor/';
 
 /* ───────────── 入口 ───────────── */
 
+// 會寫入資料的動作才需要搶鎖；單純讀取不用排隊，同時開多個頁面也不會互相等
+const WRITE_ACTIONS = ['register', 'login', 'add', 'adminReset'];
+
 function doPost(e) {
   const p = (e && e.parameter) || {};
   const lock = LockService.getScriptLock();
+  let locked = false;
   try {
-    lock.waitLock(30000);
+    if (WRITE_ACTIONS.indexOf(p.action) !== -1) {
+      lock.waitLock(30000);
+      locked = true;
+    }
     switch (p.action) {
+      case 'ping':     return json_({ ok: true }); // 登入頁先喚醒伺服器，登入時就不必等冷啟動
       case 'register': return json_(register_(p));
       case 'login':    return json_(login_(p));
       case 'logout':   return json_(logout_(p));
@@ -49,7 +57,7 @@ function doPost(e) {
     Logger.log('發生錯誤: ' + err);
     return json_(fail_('伺服器忙碌或發生錯誤，請稍後再試'));
   } finally {
-    lock.releaseLock();
+    if (locked) lock.releaseLock();
   }
 }
 
@@ -341,9 +349,12 @@ function toInt_(value, min, max) {
   return (value !== '' && Number.isInteger(n) && n >= min && n <= max) ? n : null;
 }
 
+// 時區每次執行只查一次（以前每筆紀錄都重新打開試算表查，紀錄一多就很慢）
+let sheetTimeZone_ = null;
 function dateText_(value) {
   if (value instanceof Date) {
-    return Utilities.formatDate(value, spreadsheet_().getSpreadsheetTimeZone(), 'yyyy-MM-dd');
+    if (!sheetTimeZone_) sheetTimeZone_ = spreadsheet_().getSpreadsheetTimeZone();
+    return Utilities.formatDate(value, sheetTimeZone_, 'yyyy-MM-dd');
   }
   return String(value).slice(0, 10);
 }

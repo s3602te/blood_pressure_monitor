@@ -5,6 +5,8 @@
         return;
     }
 
+    callApi("ping"); // 先喚醒伺服器，等一下按登入就不用等冷啟動
+
     const form = document.getElementById("authForm");
     const statusEl = document.getElementById("status");
     const submitBtn = document.getElementById("submitBtn");

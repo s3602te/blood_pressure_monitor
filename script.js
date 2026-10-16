@@ -28,10 +28,9 @@
     dateInput.value = localToday();
     dateInput.max = localToday();
 
-    // 順便確認登入還有效；過期就回登入頁
-    callApi("me").then(result => {
-        if (handleAuthError(result) || !result.ok) return;
-        Session.save({ ...Session.read(), displayName: result.displayName });
+    // 確認登入還有效（過期就回登入頁），同時先把歷史紀錄抓好，之後打開歷史頁就不用等
+    refreshRecords().then(result => {
+        if (handleAuthError(result)) return;
         renderUser();
     });
 
@@ -58,6 +57,7 @@
                 : `已儲存：${params.systolic} / ${params.diastolic}，脈搏 ${params.pulse}`,
             "ok"
         );
+        refreshRecords(); // 背景更新歷史紀錄，不用等
         const keepDate = dateInput.value;
         form.reset();
         dateInput.value = keepDate;

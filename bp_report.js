@@ -16,20 +16,35 @@
 
     init();
 
+    // 先秀出這台裝置上次存的紀錄（馬上看得到），再到背景抓最新的，有變動才更新畫面
     async function init() {
-        const result = await callApi("list");
-        $("loadingText").hidden = true;
+        const cached = RecordCache.read();
+        if (cached) show(cached.records);
+
+        const result = await refreshRecords();
         if (handleAuthError(result)) return;
         if (!result.ok) {
-            $("errorText").textContent = result.error || "讀取失敗，請稍後再試";
+            if (cached) {
+                $("loadingText").textContent = "目前顯示的是上次的紀錄（更新失敗）";
+                $("loadingText").hidden = false;
+            } else {
+                $("loadingText").hidden = true;
+                $("errorText").textContent = result.error || "讀取失敗，請稍後再試";
+            }
             return;
         }
-        days = aggregateByDate(result.records);
-        if (!days.length) {
-            $("emptyState").hidden = false;
-            return;
+        if (!cached || JSON.stringify(cached.records) !== JSON.stringify(result.records)) {
+            show(result.records);
         }
-        $("content").hidden = false;
+    }
+
+    function show(records) {
+        days = aggregateByDate(records);
+        $("loadingText").hidden = true;
+        $("emptyState").hidden = days.length > 0;
+        $("content").hidden = days.length === 0;
+        if (!days.length) return;
+        page = Math.min(page, totalPages());
         setupPager();
         render();
     }
