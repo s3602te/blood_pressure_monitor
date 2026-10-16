@@ -222,6 +222,41 @@ function setupTriggers() {
   });
 }
 
+/* ───────────── 管理者工具 ───────────── */
+
+// 家人忘記密碼時：改好下面兩個值，在編輯器上方選 resetPassword 按「執行」。
+// 這是在編輯器直接執行，只有你本人做得到；存檔後就能執行，不需要重新部署。
+// 做完請把兩個值改回原本的提示文字，不要把密碼留在程式碼裡。
+function resetPassword() {
+  const USERNAME = '在這裡填帳號';
+  const NEW_PASSWORD = '在這裡填新密碼';
+
+  if (NEW_PASSWORD.length < 6 || NEW_PASSWORD.length > 64) throw new Error('新密碼需為 6 到 64 個字元');
+  const sheet = accountSheet_();
+  const rows = sheet.getDataRange().getValues();
+  const key = USERNAME.trim().toLowerCase();
+  let row = 0;
+  for (let i = 1; i < rows.length; i++) {
+    if (String(rows[i][0]).toLowerCase() === key) { row = i + 1; break; }
+  }
+  if (!row) throw new Error('找不到帳號：' + USERNAME);
+
+  const salt = sha256_(Utilities.getUuid()).slice(0, 16);
+  sheet.getRange(row, 4, 1, 2).setValues([[salt, hashPassword_(salt, NEW_PASSWORD)]]);
+
+  // 讓這個帳號在所有裝置上登出，並解除輸錯密碼造成的暫停
+  const props = PropertiesService.getScriptProperties();
+  const all = props.getProperties();
+  Object.keys(all).forEach(function (k) {
+    if (k.indexOf('tok_') === 0 && all[k].slice(0, all[k].lastIndexOf('|')).toLowerCase() === key) {
+      props.deleteProperty(k);
+    }
+  });
+  CacheService.getScriptCache().remove('fail_' + key.slice(0, 40));
+
+  Logger.log('已重設 ' + USERNAME + ' 的密碼，請記得把程式碼裡的帳號與密碼改回提示文字');
+}
+
 /* ───────────── 內部工具 ───────────── */
 
 function prop_(key) {
