@@ -184,7 +184,7 @@
         if (r.sys >= HIGH_SYS || r.dia >= HIGH_DIA) bp.className = "hi";
         else bp.className = "bp";
         line.appendChild(bp);
-        if (Number.isFinite(r.pulse)) line.appendChild(el("span", "pulse", `（${r.pulse}）`));
+        if (Number.isFinite(r.pulse)) line.appendChild(el("span", "pulse", ` 脈搏${r.pulse}`));
         return line;
     }
 
