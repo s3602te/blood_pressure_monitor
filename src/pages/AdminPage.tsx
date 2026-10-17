@@ -1,4 +1,5 @@
 import { useState, type FormEvent } from 'react'
+import { Link } from 'react-router-dom'
 import { adminList, adminReset, errorOf, type AdminAccount } from '../lib/api'
 import { agoText, daysSince } from '../lib/records'
 import { usePageTitle } from '../hooks/hooks'
@@ -52,8 +53,11 @@ export default function AdminPage() {
 
   return (
     <main className={wrap}>
-      <div className="pt-12">
-        <h1 className={`${pageTitle} mt-0! text-[2.125rem]!`}>管理：重設密碼</h1>
+      <div className="pt-6">
+        <Link to="/" className="inline-block py-2 font-bold text-teal-deep underline underline-offset-[3px]">
+          ← 回記錄頁
+        </Link>
+        <h1 className={`${pageTitle} mt-2! text-[2.125rem]!`}>管理：重設密碼</h1>
         <p className="mt-1 text-muted">幫忘記密碼的家人換一個新密碼。</p>
       </div>
 

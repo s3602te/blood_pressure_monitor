@@ -10,11 +10,13 @@ const STYLE: Record<TrendKind, { box: string; headline: string }> = {
 }
 
 const signed = (n: number) => (n === 0 ? '一樣' : n > 0 ? `高 ${n}` : `低 ${-n}`)
+const md = (iso: string) => iso.slice(5).replace('-', '/')
 
 /** 這週（最近 7 天）和上週的平均血壓比較，一句話告訴長輩是變好、持平還是要留意 */
 export function TrendCard({ trend }: { trend: Trend }) {
   const style = STYLE[trend.kind]
-  const { thisWeek, lastWeek } = trend
+  const { thisWeek, lastWeek, range } = trend
+  const stillHigh = !!thisWeek && (thisWeek.sys >= 135 || thisWeek.dia >= 85)
 
   return (
     <section aria-label="和上週比較" className={`mt-5 rounded-card border-2 px-4 py-3.5 ${style.box}`}>
@@ -27,11 +29,19 @@ export function TrendCard({ trend }: { trend: Trend }) {
         lastWeek && (
           <>
             <p className="mt-1 tabular-nums">
-              這週平均 <strong>{thisWeek.sys}/{thisWeek.dia}</strong>　上週 {lastWeek.sys}/{lastWeek.dia}
+              這週（{md(range.thisFrom)}～{md(range.thisTo)}）平均 <strong>{thisWeek.sys}/{thisWeek.dia}</strong>
+            </p>
+            <p className="tabular-nums">
+              上週（{md(range.lastFrom)}～{md(range.lastTo)}）平均 {lastWeek.sys}/{lastWeek.dia}
             </p>
             <p className="text-[0.9375rem] opacity-90">
               收縮壓{signed(trend.dSys)}、舒張壓{signed(trend.dDia)}（單位 mmHg）
             </p>
+            {(trend.kind === 'better' || trend.kind === 'mixed') && stillHigh && (
+              <p className="mt-1 text-[0.9375rem] font-bold text-warn">
+                不過這週平均還是偏高（135/85 以上），請繼續留意，按時吃藥。
+              </p>
+            )}
             {trend.kind === 'worse' && (
               <p className="mt-1 text-[0.9375rem]">如果連續幾週都偏高，回診時記得給醫師看「給醫師看」的紀錄。</p>
             )}

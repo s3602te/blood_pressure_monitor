@@ -378,11 +378,14 @@ function backupSpreadsheet() {
       while (same.hasNext()) same.next().setTrashed(true);
     });
 
+    let format = 'xlsx';
     try {
       folder.createFile(exportXlsx_(id).setName(name + '.xlsx'));
     } catch (err) {
-      // 匯出 Excel 失敗時，退而求其次複製成 Google 試算表，至少有一份備份
+      // 匯出 Excel 失敗時，退而求其次複製成 Google 試算表，至少有一份備份（但它會出現在試算表首頁）
+      format = 'Google 試算表（複製）';
       Logger.log('匯出 Excel 失敗，改用複製：' + err);
+      notifyDiscord_('ℹ️ 血壓記錄備份：匯出 Excel 失敗（' + err + '），這次改用複製成 Google 試算表，檔名「' + name + '」。');
       file.makeCopy(name, folder);
     }
 
@@ -394,7 +397,7 @@ function backupSpreadsheet() {
     }
     backups.sort(function (a, b) { return b.getDateCreated().getTime() - a.getDateCreated().getTime(); });
     backups.slice(BACKUP_KEEP).forEach(function (f) { f.setTrashed(true); });
-    Logger.log('已備份：' + name + '（目前保留 ' + Math.min(backups.length, BACKUP_KEEP) + ' 份）');
+    Logger.log('已備份（' + format + '）：' + name + '（目前保留 ' + Math.min(backups.length, BACKUP_KEEP) + ' 份）');
   } catch (err) {
     Logger.log('備份失敗: ' + err);
     notifyDiscord_('⚠️ 血壓記錄的每週自動備份失敗了：' + err);

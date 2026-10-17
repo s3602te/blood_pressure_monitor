@@ -276,6 +276,8 @@ export type TrendKind = 'notEnough' | 'better' | 'worse' | 'steady' | 'steadyHig
 
 export interface Trend {
   kind: TrendKind
+  /** 這週、上週各是哪幾天（yyyy-MM-dd），畫面上要寫清楚 */
+  range: { thisFrom: string; thisTo: string; lastFrom: string; lastTo: string }
   thisWeek: WeekStats | null
   lastWeek: WeekStats | null
   /** 這週減上週（mmHg）；負的代表比上週低 */
@@ -296,9 +298,15 @@ function weekStats(days: DayAgg[], from: string, to: string): WeekStats | null {
  * 差 2～3 mmHg 以內算「持平」；持平又在安全範圍（低於 135/85）就是「維持得很好」。
  */
 export function weekTrend(days: DayAgg[], today: Date): Trend {
-  const thisWeek = weekStats(days, dateText(addDays(today, -6)), dateText(today))
-  const lastWeek = weekStats(days, dateText(addDays(today, -13)), dateText(addDays(today, -7)))
-  if (!thisWeek || !lastWeek) return { kind: 'notEnough', thisWeek, lastWeek, dSys: 0, dDia: 0 }
+  const range = {
+    thisFrom: dateText(addDays(today, -6)),
+    thisTo: dateText(today),
+    lastFrom: dateText(addDays(today, -13)),
+    lastTo: dateText(addDays(today, -7)),
+  }
+  const thisWeek = weekStats(days, range.thisFrom, range.thisTo)
+  const lastWeek = weekStats(days, range.lastFrom, range.lastTo)
+  if (!thisWeek || !lastWeek) return { kind: 'notEnough', range, thisWeek, lastWeek, dSys: 0, dDia: 0 }
 
   const dSys = thisWeek.sys - lastWeek.sys
   const dDia = thisWeek.dia - lastWeek.dia
@@ -307,7 +315,7 @@ export function weekTrend(days: DayAgg[], today: Date): Trend {
   else if ((dSys >= 3 || dDia >= 2) && dSys >= -2 && dDia >= -2) kind = 'worse'
   else if (Math.abs(dSys) <= 2 && Math.abs(dDia) <= 1) kind = thisWeek.sys >= HIGH_SYS || thisWeek.dia >= HIGH_DIA ? 'steadyHigh' : 'steady'
   else kind = 'mixed'
-  return { kind, thisWeek, lastWeek, dSys, dDia }
+  return { kind, range, thisWeek, lastWeek, dSys, dDia }
 }
 
 /* ───────────── 管理頁：多久沒用 ───────────── */

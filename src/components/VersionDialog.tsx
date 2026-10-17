@@ -1,4 +1,5 @@
 import { useState } from 'react'
+import { useNavigate } from 'react-router-dom'
 import { btnPrimary, btnQuiet } from '../ui'
 import { Modal } from './Modal'
 
@@ -15,9 +16,10 @@ async function reloadLatest() {
   location.reload()
 }
 
-/** 版本資訊：給管理者看的，長輩平常看不到（在畫面左上角「血壓記錄」連點 5 下才會出現） */
+/** 版本資訊：給管理者看的，長輩平常看不到（在畫面左上角「血壓記錄」連點 5 下才會出現）。也從這裡進管理員頁面。 */
 export function VersionDialog({ username, onClose }: { username: string; onClose: () => void }) {
   const [busy, setBusy] = useState(false)
+  const navigate = useNavigate()
   return (
     <Modal onClose={onClose} labelledBy="versionTitle" dismissOnBackdrop={false}>
       <h2 id="versionTitle" className="text-[1.625rem] leading-tight font-black">
@@ -45,6 +47,9 @@ export function VersionDialog({ username, onClose }: { username: string; onClose
         }}
       >
         {busy ? '重新載入中…' : '清除快取並重新載入'}
+      </button>
+      <button type="button" className={`${btnQuiet} mt-3`} onClick={() => navigate('/admin')}>
+        管理員頁面（需要管理密碼）
       </button>
       <button type="button" className={`${btnPrimary} mt-3`} onClick={onClose}>
         關閉

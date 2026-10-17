@@ -61,7 +61,9 @@ export default function HistoryPage() {
       {days.length > 0 && (
         <>
           <section className="readout-panel mt-5 rounded-panel px-[22px] pt-[22px] pb-5 text-white" aria-live="polite">
-            <p className="text-base text-[#a9c7c8]">這 {slice.length} 天的平均</p>
+            <p className="text-base text-[#a9c7c8]">
+              {slice[0].label} 到 {slice[slice.length - 1].label} 的平均（有記錄的 {slice.length} 天）
+            </p>
             <p className="text-[60px] leading-[1.15] font-black tabular-nums max-[380px]:text-[50px]">
               <span>{average(slice, 'sys') ?? '--'}</span>
               <span className="mx-1.5 font-light text-[#6f9ea1]">/</span>
@@ -77,8 +79,9 @@ export default function HistoryPage() {
           <section className={card} aria-label="血壓走勢圖">
             <ChartPanel days={slice} />
             <ul className="mt-3 list-disc pl-[22px] text-[0.9375rem] text-muted">
+              <li>藍線是收縮壓（高壓），綠線是舒張壓（低壓）。</li>
               <li>虛線是參考線：135（收縮壓）、85（舒張壓）。</li>
-              <li>橘色大圓點表示高於參考值。</li>
+              <li>點變大、外面有橘色圈圈，表示高於參考值。</li>
               <li>點一下圖上的某一天，可以看到脈搏和吃藥狀況。</li>
             </ul>
           </section>

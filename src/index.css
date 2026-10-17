@@ -27,6 +27,18 @@
   --radius-card: 14px;
   --radius-panel: 22px;
 
+  /* 第一次使用的「放大字」提示：外圈一閃一閃，讓人注意到 */
+  --animate-hint: hint-blink 1.2s ease-in-out infinite;
+  @keyframes hint-blink {
+    0%,
+    100% {
+      box-shadow: 0 0 0 0 rgb(27 127 122 / 0);
+    }
+    50% {
+      box-shadow: 0 0 0 6px rgb(27 127 122 / 0.45);
+    }
+  }
+
   --animate-modal-in: modal-in 0.18s ease-out;
   @keyframes modal-in {
     from {

@@ -47,6 +47,18 @@ describe('血壓提醒', () => {
     expect(bpAdvice(85, 70)?.level).toBe('low')
     expect(bpAdvice(110, 55)?.level).toBe('low')
   })
+  it('收縮壓、舒張壓只要有一個到門檻就提醒', () => {
+    expect(bpAdvice(150, 70)?.level).toBe('high') // 只有收縮壓高
+    expect(bpAdvice(120, 90)?.level).toBe('high') // 只有舒張壓高
+    expect(bpAdvice(120, 55)?.level).toBe('low') // 只有舒張壓低
+    expect(bpAdvice(85, 70)?.level).toBe('low') // 只有收縮壓低
+    expect(bpAdvice(120, 112)?.level).toBe('veryHigh') // 只有舒張壓很高
+  })
+  it('一個高一個低（老人家常見，例如 150/55）：以偏高為主，再補一句偏低', () => {
+    const a = bpAdvice(150, 55)!
+    expect(a.level).toBe('high')
+    expect(a.text).toContain('舒張壓有點低')
+  })
   it('每一種提醒都說明不是診斷', () => {
     for (const [s, d] of [[150, 90], [190, 100], [80, 50]]) expect(bpAdvice(s, d)!.text).toContain('不是診斷')
   })
@@ -94,6 +106,10 @@ describe('這週和上週比較', () => {
   })
   it('一個升一個降 → 有升有降', () => {
     expect(trendOf(122, 86, 128, 80).kind).toBe('mixed')
+  })
+  it('帶回這週、上週各是哪幾天', () => {
+    const t = trendOf(125, 78, 132, 82)
+    expect(t.range).toEqual({ thisFrom: '2026-10-11', thisTo: '2026-10-17', lastFrom: '2026-10-04', lastTo: '2026-10-10' })
   })
   it('任何一週少於 3 天紀錄 → 資料不夠', () => {
     const days = aggregateByDate([...week(4, 130, 80), ...week(11, 130, 80, 2)])

@@ -47,7 +47,7 @@ export function Layout() {
             <span>{session.displayName || session.username}</span>
             <button
               type="button"
-              className={linkBtn}
+              className={`${linkBtn} rounded-lg ${showHint && !large ? 'animate-hint' : ''}`}
               onClick={() => {
                 fontHint.dismiss() // 按過放大字，就不用再提示了
                 setShowHint(false)
@@ -71,8 +71,8 @@ export function Layout() {
             </p>
           )}
           {showHint && !large && (
-            <div role="note" className="mt-3 flex items-center gap-3 rounded-xl bg-ok-bg px-4 py-3 text-ok">
-              <p className="flex-1 font-bold">字太小嗎？按右上角的「放大字」，字就會變大。</p>
+            <div role="note" className="animate-hint mt-3 flex items-center gap-3 rounded-xl bg-ok-bg px-4 py-3 text-ok">
+              <p className="flex-1 text-lg font-black">點右上角「放大字」，字會變大</p>
               <button
                 type="button"
                 className="min-h-11 shrink-0 cursor-pointer rounded-xl border-2 border-teal bg-card px-3 font-bold text-teal-deep"

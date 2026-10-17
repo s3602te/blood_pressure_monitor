@@ -1,7 +1,7 @@
 import { Fragment, useMemo, useState } from 'react'
 import { usePageTitle, useRecords, useSession } from '../hooks/hooks'
 import { addDays, buildReport, dateText, isHigh, rangeFor, reportToCsv, type RangeChoice, type ReportRow } from '../lib/records'
-import { btnPrimary, btnQuiet, field, fieldLabel, hiMark, input, pageTitle, segInput, segLabel } from '../ui'
+import { field, fieldLabel, hiMark, input, pageTitle, segInput, segLabel } from '../ui'
 
 const RANGES: { value: RangeChoice; label: string }[] = [
   { value: '7', label: '近 7 天' },
@@ -204,18 +204,30 @@ export default function DoctorPage() {
           </ul>
           <p className="mt-3 text-sm text-muted">整理日期：{dateText(today)}</p>
 
-          <div className="mt-[26px] grid grid-cols-2 gap-2.5 print:hidden">
-            <button type="button" className={`${btnPrimary} mt-0 text-lg!`} onClick={() => window.print()}>
-              列印／存成 PDF
-            </button>
-            <button
-              type="button"
-              className={`${btnQuiet} min-h-[3.6rem] text-lg!`}
-              onClick={() => downloadCsv(reportToCsv(report), `血壓紀錄_${name}_${range.from}_${range.to}.csv`)}
-            >
-              下載 CSV
-            </button>
-          </div>
+          <section aria-label="列印或存成" className="mt-[26px] print:hidden">
+            <h3 className="text-lg font-black">列印／存成</h3>
+            <div className="mt-2 grid grid-cols-2 gap-2.5">
+              {[
+                { key: 'pdf', title: 'PDF', hint: '列印，或存成 PDF', run: () => window.print() },
+                {
+                  key: 'csv',
+                  title: 'CSV',
+                  hint: '用 Excel 開啟',
+                  run: () => downloadCsv(reportToCsv(report), `血壓紀錄_${name}_${range.from}_${range.to}.csv`),
+                },
+              ].map((b) => (
+                <button
+                  key={b.key}
+                  type="button"
+                  onClick={b.run}
+                  className="flex min-h-[4.5rem] cursor-pointer flex-col items-center justify-center rounded-card border-2 border-teal bg-card px-2 py-2 text-teal-deep hover:bg-ok-bg"
+                >
+                  <span className="text-xl leading-tight font-black">{b.title}</span>
+                  <span className="text-[0.9375rem]">{b.hint}</span>
+                </button>
+              ))}
+            </div>
+          </section>
         </section>
       )}
     </>
