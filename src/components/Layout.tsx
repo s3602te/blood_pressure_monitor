@@ -2,8 +2,8 @@ import { Suspense, useRef, useState } from 'react'
 import { NavLink, Navigate, Outlet } from 'react-router-dom'
 import { VersionDialog } from './VersionDialog'
 import { logout } from '../lib/api'
-import { fontSize } from '../lib/storage'
-import { useLargeFont, useSession } from '../hooks/hooks'
+import { fontHint, fontSize } from '../lib/storage'
+import { useLargeFont, useOnline, useSession } from '../hooks/hooks'
 import { linkBtn, wrap } from '../ui'
 
 const NAV = [
@@ -16,7 +16,9 @@ const NAV = [
 export function Layout() {
   const session = useSession()
   const large = useLargeFont()
+  const online = useOnline()
   const [showVersion, setShowVersion] = useState(false)
+  const [showHint, setShowHint] = useState(() => !fontHint.seen())
   const taps = useRef<number[]>([])
   if (!session) return <Navigate to="/login" replace />
 
@@ -43,7 +45,15 @@ export function Layout() {
           </span>
           <div className="flex items-center gap-3 text-base text-muted">
             <span>{session.displayName || session.username}</span>
-            <button type="button" className={linkBtn} onClick={() => fontSize.set(!large)}>
+            <button
+              type="button"
+              className={linkBtn}
+              onClick={() => {
+                fontHint.dismiss() // 按過放大字，就不用再提示了
+                setShowHint(false)
+                fontSize.set(!large)
+              }}
+            >
               {large ? '標準字' : '放大字'}
             </button>
             <button type="button" className={linkBtn} onClick={askLogout}>
@@ -53,7 +63,32 @@ export function Layout() {
         </div>
       </header>
 
-      <main className={`${wrap} pb-[calc(5.5rem+env(safe-area-inset-bottom))] print:pb-0`}>
+      {(!online || (showHint && !large)) && (
+        <div className={`${wrap} print:hidden`}>
+          {!online && (
+            <p role="status" className="mt-3 rounded-xl bg-warn-bg px-4 py-3 font-bold text-warn">
+              目前沒有網路。血壓會先存在手機，連上網路後自動補送。
+            </p>
+          )}
+          {showHint && !large && (
+            <div role="note" className="mt-3 flex items-center gap-3 rounded-xl bg-ok-bg px-4 py-3 text-ok">
+              <p className="flex-1 font-bold">字太小嗎？按右上角的「放大字」，字就會變大。</p>
+              <button
+                type="button"
+                className="min-h-11 shrink-0 cursor-pointer rounded-xl border-2 border-teal bg-card px-3 font-bold text-teal-deep"
+                onClick={() => {
+                  fontHint.dismiss()
+                  setShowHint(false)
+                }}
+              >
+                知道了
+              </button>
+            </div>
+          )}
+        </div>
+      )}
+
+      <main className={`${wrap} pb-[calc(5.5rem+env(safe-area-inset-bottom))] print:max-w-none print:px-0 print:pb-0`}>
         <Suspense fallback={<p className="mt-6 text-muted">讀取中…</p>}>
           <Outlet />
         </Suspense>

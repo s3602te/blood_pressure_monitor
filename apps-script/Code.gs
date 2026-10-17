@@ -14,7 +14,8 @@
 
 const ACCOUNT_SHEET = '帳號';
 const LEGACY_SHEET = '工作表1';
-const ACCOUNT_HEADERS = ['帳號', '顯示名稱', '資料分頁', 'salt', '密碼雜湊', '建立時間'];
+const ACCOUNT_HEADERS = ['帳號', '顯示名稱', '資料分頁', 'salt', '密碼雜湊', '建立時間', '最後使用'];
+const LAST_SEEN_COLUMN = 7;   // 「最後使用」在帳號分頁的第幾欄（管理頁用來看誰很久沒用）
 const DATA_HEADERS = ['日期', '收縮壓', '舒張壓', '脈搏', '緊張程度', '吃藥狀況', '今日狀況', '建立時間', '修改時間'];
 
 const TOKEN_DAYS = 365;       // 登入一次，這台裝置可保持登入的天數；每天使用會自動續期，等於不會被登出
@@ -26,7 +27,7 @@ const MIN_PASSWORD = 4;       // 密碼最短字元數（4 碼可以放生日）
 const LOCK_SECONDS = 600;     // 暫停時間（秒）
 const DUPLICATE_SECONDS = 5;  // 幾秒內完全相同的送出視為重複
 const BACKUP_FOLDER = '血壓記錄備份'; // 備份存放的資料夾（和試算表放在同一個地方）
-const BACKUP_KEEP = 2;        // 保留最近幾份備份，更舊的自動丟進垃圾桶（每週一份＝約 2 週，不會越積越多）
+const BACKUP_KEEP = 8;        // 保留最近幾份備份，更舊的自動丟進垃圾桶（每週一份＝約 2 個月，不會越積越多）
 const REQUEST_ID_SECONDS = 21600; // 同一次填寫編號的記憶時間（6 小時，已是快取允許的最長時間）
 const SITE_URL = 'https://s3602te.github.io/blood_pressure_monitor/';
 
@@ -118,7 +119,8 @@ function register_(p) {
 
   const salt = sha256_(Utilities.getUuid()).slice(0, 16);
   const displayName = String(p.displayName || '').trim().slice(0, 20) || username;
-  appendAccountRow_(accounts, [username, displayName, sheetName, salt, hashPassword_(salt, password), new Date()]);
+  appendAccountRow_(accounts, [username, displayName, sheetName, salt, hashPassword_(salt, password), new Date(), new Date()]);
+  ensureLastSeenHeader_(accounts);
 
   return { ok: true, token: issueToken_(username), username: username, displayName: displayName };
 }
@@ -137,6 +139,7 @@ function login_(p) {
     return fail_('帳號或密碼不正確');
   }
   cache.remove(failKey);
+  touchLastSeen_(acc.row);
   return { ok: true, token: issueToken_(acc.username), username: acc.username, displayName: acc.displayName };
 }
 
@@ -341,12 +344,12 @@ function notifyDiscord_(text) {
   }
 }
 
-// 執行一次即可：每天 03:01、07:00、21:45 提醒
+// 執行一次即可：每天 07:00、21:45 提醒（早上、晚上各一次）
 function setupTriggers() {
   ScriptApp.getProjectTriggers().forEach(function (t) {
     if (t.getHandlerFunction() === 'sendDiscordReminder') ScriptApp.deleteTrigger(t);
   });
-  [[3, 1], [7, 0], [21, 45]].forEach(function (hm) {
+  [[7, 0], [21, 45]].forEach(function (hm) {
     ScriptApp.newTrigger('sendDiscordReminder')
       .timeBased().everyDays(1).atHour(hm[0]).nearMinute(hm[1]).create();
   });
@@ -454,10 +457,31 @@ function adminCheck_(p) {
 function adminList_(p) {
   const denied = adminCheck_(p);
   if (denied) return denied;
+  const ss = spreadsheet_();
   const rows = accountSheet_().getDataRange().getValues();
   const accounts = [];
   for (let i = 1; i < rows.length; i++) {
-    if (String(rows[i][0]) !== '') accounts.push({ username: String(rows[i][0]), displayName: String(rows[i][1]) });
+    if (String(rows[i][0]) === '') continue;
+
+    // 最後記錄：這個帳號的資料分頁裡，最新一筆的建立時間
+    let lastRecord = 0;
+    let count = 0;
+    const sheet = ss.getSheetByName(String(rows[i][2]));
+    if (sheet && sheet.getLastRow() > 1) {
+      const times = sheet.getRange(2, 8, sheet.getLastRow() - 1, 1).getValues();
+      count = times.length;
+      times.forEach(function (r) {
+        if (r[0] instanceof Date && r[0].getTime() > lastRecord) lastRecord = r[0].getTime();
+      });
+    }
+    const seen = rows[i][LAST_SEEN_COLUMN - 1];
+    accounts.push({
+      username: String(rows[i][0]),
+      displayName: String(rows[i][1]),
+      lastSeen: seen instanceof Date ? seen.getTime() : 0,
+      lastRecord: lastRecord,
+      count: count
+    });
   }
   return { ok: true, accounts: accounts };
 }
@@ -664,11 +688,13 @@ function findAccount_(username) {
   for (let i = 1; i < rows.length; i++) {
     if (String(rows[i][0]).toLowerCase() === key) {
       return {
+        row: i + 1,
         username: String(rows[i][0]),
         displayName: String(rows[i][1]),
         sheetName: String(rows[i][2]),
         salt: String(rows[i][3]),
-        hash: String(rows[i][4])
+        hash: String(rows[i][4]),
+        lastSeen: rows[i][LAST_SEEN_COLUMN - 1]
       };
     }
   }
@@ -705,5 +731,24 @@ function authenticate_(token) {
     PropertiesService.getScriptProperties().setProperty(
       'tok_' + sha256_(String(token)), v.slice(0, i) + '|' + (now + TOKEN_DAYS * 86400000));
   }
+  if (acc) touchLastSeenIfStale_(acc);
   return acc;
+}
+
+// 「最後使用」：這個帳號最近一次打開網站的時間。一個帳號一天最多寫入一次，不會拖慢每次讀取。
+function touchLastSeenIfStale_(acc) {
+  const last = acc.lastSeen instanceof Date ? acc.lastSeen.getTime() : 0;
+  if (Date.now() - last > 20 * 3600 * 1000) touchLastSeen_(acc.row);
+}
+
+function touchLastSeen_(row) {
+  const sheet = accountSheet_();
+  ensureLastSeenHeader_(sheet);
+  sheet.getRange(row, LAST_SEEN_COLUMN).setValue(new Date());
+}
+
+// 早期建立的帳號分頁沒有「最後使用」這一欄的標題，補上
+function ensureLastSeenHeader_(sheet) {
+  const cell = sheet.getRange(1, LAST_SEEN_COLUMN);
+  if (!cell.getValue()) cell.setValue(ACCOUNT_HEADERS[LAST_SEEN_COLUMN - 1]).setFontWeight('bold');
 }

@@ -115,8 +115,17 @@ export const deleteRecord = (ref: RecordRef) => callApi('delete', { ...ref }, 20
 
 /* ───────────── 管理頁 ───────────── */
 
+/** 管理頁看到的帳號狀況（時間是毫秒，0＝從來沒有） */
+export interface AdminAccount {
+  username: string
+  displayName: string
+  lastSeen: number
+  lastRecord: number
+  count: number
+}
+
 export const adminList = (adminCode: string) =>
-  callApi<{ accounts: { username: string; displayName: string }[] }>('adminList', { adminCode })
+  callApi<{ accounts: AdminAccount[] }>('adminList', { adminCode })
 
 export const adminReset = (adminCode: string, username: string, newPassword: string) =>
   callApi('adminReset', { adminCode, username, newPassword })

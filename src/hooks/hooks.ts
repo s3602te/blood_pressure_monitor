@@ -37,6 +37,18 @@ export function useRefreshRecords() {
   return () => qc.refetchQueries({ queryKey: ['records'] })
 }
 
+const subscribeOnline = (fn: () => void) => {
+  window.addEventListener('online', fn)
+  window.addEventListener('offline', fn)
+  return () => {
+    window.removeEventListener('online', fn)
+    window.removeEventListener('offline', fn)
+  }
+}
+
+/** 手機現在有沒有網路 */
+export const useOnline = () => useSyncExternalStore(subscribeOnline, () => navigator.onLine)
+
 /** 設定網頁標題（顯示在瀏覽器分頁上） */
 export function usePageTitle(title: string) {
   useEffect(() => {

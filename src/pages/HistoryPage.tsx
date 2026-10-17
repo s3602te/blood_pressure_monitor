@@ -2,9 +2,10 @@ import { useEffect, useMemo, useState } from 'react'
 import { Link } from 'react-router-dom'
 import { ChartPanel } from '../components/ChartPanel'
 import { DayDialog } from '../components/DayDialog'
+import { TrendCard } from '../components/TrendCard'
 import { UndoToast } from '../components/UndoToast'
 import { usePageTitle, useRecords, useRefreshRecords } from '../hooks/hooks'
-import { aggregateByDate, average, HIGH_DIA, HIGH_SYS } from '../lib/records'
+import { aggregateByDate, average, HIGH_DIA, HIGH_SYS, weekTrend } from '../lib/records'
 import type { BpRecord } from '../lib/types'
 import { btnPrimary, btnQuiet, card, hiMark, input, linkBtn, pageTitle } from '../ui'
 
@@ -15,6 +16,7 @@ export default function HistoryPage() {
   const records = useRecords()
   const refresh = useRefreshRecords()
   const days = useMemo(() => aggregateByDate(records.data ?? []), [records.data])
+  const trend = useMemo(() => weekTrend(days, new Date()), [days])
 
   const [page, setPage] = useState(1) // 第 1 頁 = 最新的 7 天
   const [openIso, setOpenIso] = useState<string | null>(null) // 打開「修改」視窗的那一天
@@ -69,6 +71,8 @@ export default function HistoryPage() {
               平均血壓（收縮 / 舒張，mmHg）　平均脈搏 <span>{average(slice, 'pulse') ?? '--'}</span> 次／分鐘
             </p>
           </section>
+
+          <TrendCard trend={trend} />
 
           <section className={card} aria-label="血壓走勢圖">
             <ChartPanel days={slice} />

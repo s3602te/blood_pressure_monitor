@@ -147,6 +147,28 @@ export const pendingQueue = {
   },
 }
 
+/* ───────────── 「放大字」的第一次提示 ───────────── */
+
+const HINT_KEY = 'bp_font_hint'
+
+export const fontHint = {
+  /** 已經看過（或按過放大字）就不再顯示 */
+  seen(): boolean {
+    try {
+      return localStorage.getItem(HINT_KEY) === '1'
+    } catch {
+      return true
+    }
+  },
+  dismiss() {
+    try {
+      localStorage.setItem(HINT_KEY, '1')
+    } catch {
+      /* 略過 */
+    }
+  },
+}
+
 /* ───────────── 字體大小 ───────────── */
 
 const FONT_KEY = 'bp_font'

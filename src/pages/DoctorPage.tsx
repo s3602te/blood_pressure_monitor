@@ -1,8 +1,7 @@
-import { useMemo, useState } from 'react'
+import { Fragment, useMemo, useState } from 'react'
 import { usePageTitle, useRecords, useSession } from '../hooks/hooks'
-import { addDays, buildReport, dateText, isHigh, rangeFor, type RangeChoice } from '../lib/records'
-import type { BpRecord } from '../lib/types'
-import { btnPrimary, field, fieldLabel, hiMark, input, pageTitle, segInput, segLabel } from '../ui'
+import { addDays, buildReport, dateText, isHigh, rangeFor, reportToCsv, type RangeChoice, type ReportRow } from '../lib/records'
+import { btnPrimary, btnQuiet, field, fieldLabel, hiMark, input, pageTitle, segInput, segLabel } from '../ui'
 
 const RANGES: { value: RangeChoice; label: string }[] = [
   { value: '7', label: '近 7 天' },
@@ -10,18 +9,6 @@ const RANGES: { value: RangeChoice; label: string }[] = [
   { value: '90', label: '近 90 天' },
   { value: 'custom', label: '自訂' },
 ]
-
-function Reading({ r }: { r: BpRecord }) {
-  return (
-    // 血壓和脈搏各自不拆開；這一格放不下時，脈搏整個掉到下一行，不會把字切成兩半
-    <div className="flex flex-wrap items-baseline gap-x-1.5 tabular-nums">
-      <span className={isHigh(r.sys, r.dia) ? `${hiMark} whitespace-nowrap` : 'font-bold whitespace-nowrap'}>
-        {r.sys}/{r.dia}
-      </span>
-      {Number.isFinite(r.pulse) && <span className="text-sm whitespace-nowrap text-muted">脈搏{r.pulse}</span>}
-    </div>
-  )
-}
 
 function Stat({ label, value, sub }: { label: string; value: string; sub?: string }) {
   return (
@@ -33,7 +20,25 @@ function Stat({ label, value, sub }: { label: string; value: string; sub?: strin
   )
 }
 
-/** 給醫師看：選一段時間，整理成平均、偏高次數、逐日表格，可以直接列印或存成 PDF */
+const cell = 'px-1.5 py-2 align-top print:py-1'
+
+/** 下載 CSV（用 Excel、Google 試算表都能開） */
+function downloadCsv(csv: string, filename: string) {
+  const url = URL.createObjectURL(new Blob([csv], { type: 'text/csv;charset=utf-8' }))
+  const a = document.createElement('a')
+  a.href = url
+  a.download = filename
+  document.body.appendChild(a)
+  a.click()
+  a.remove()
+  setTimeout(() => URL.revokeObjectURL(url), 1000)
+}
+
+/**
+ * 給醫師看：選一段時間，整理成平均、偏高次數，以及「一次量測一列」的清單（最新的在最上面，和歷史頁一樣）。
+ * 一列一次量測，所以某天量好幾次、只量一次、沒量，表格都一樣整齊，不會出現一堆空格。
+ * 可以直接列印或存成 PDF，也可以下載 CSV。
+ */
 export default function DoctorPage() {
   usePageTitle('給醫師看')
   const records = useRecords()
@@ -51,6 +56,17 @@ export default function DoctorPage() {
   )
   const loading = records.isLoading || (records.isFetching && !records.data)
   const s = report?.stats
+  const name = session?.displayName || session?.username || ''
+
+  // 同一天的幾列放在同一個區塊，列印換頁時不會把同一天拆開
+  const groups = useMemo(() => {
+    const out: ReportRow[][] = []
+    for (const row of report?.rows ?? []) {
+      if (row.firstOfDay) out.push([row])
+      else out[out.length - 1].push(row)
+    }
+    return out
+  }, [report])
 
   return (
     <>
@@ -116,11 +132,11 @@ export default function DoctorPage() {
           <div className="mt-6 print:mt-0">
             <h2 className="text-[1.625rem] font-black">血壓紀錄</h2>
             <p className="mt-0.5 text-muted">
-              {session?.displayName || session?.username}　{range.from} 到 {range.to}
+              {name}　{range.from} 到 {range.to}
             </p>
           </div>
 
-          <div className="mt-4 grid grid-cols-2 gap-2.5">
+          <div className="mt-4 grid grid-cols-2 gap-2.5 print:grid-cols-4">
             <Stat label="平均血壓" value={s.avgBp} sub={`脈搏 ${s.avgPulse ?? '--'}`} />
             <Stat label="記錄天數" value={`${s.dayCount} 天`} sub={`共 ${s.readingCount} 次量測`} />
             <Stat label="早上平均" value={s.morning.bp} sub={`${s.morning.n} 次`} />
@@ -132,49 +148,74 @@ export default function DoctorPage() {
 
           <table className="mt-[18px] w-full border-collapse bg-card tabular-nums">
             <thead>
-              <tr className="text-left text-[0.9375rem] font-medium text-muted">
-                {['日期', '早上', '晚上', '吃藥'].map((h) => (
-                  <th key={h} scope="col" className="border-b-2 border-line px-1.5 py-1.5 font-medium whitespace-nowrap print:border-[#999]">
+              <tr className="text-left text-[0.9375rem] font-medium whitespace-nowrap text-muted">
+                {['日期', '時段', '血壓', '脈搏', '吃藥'].map((h) => (
+                  <th key={h} scope="col" className="border-b-2 border-line px-1.5 py-1.5 font-medium print:border-[#999]">
                     {h}
                   </th>
                 ))}
               </tr>
             </thead>
-            <tbody>
-              {report.days.map((d) => (
-                <tr key={d.date} className="print:break-inside-avoid">
-                  <td className="border-b border-line px-1.5 py-2.5 align-top print:border-[#999]">
-                    <div className="font-bold whitespace-nowrap">
-                      {d.label}
-                      <span className="ml-1 text-sm font-normal text-muted">週{d.weekday}</span>
-                    </div>
-                    {d.notes.length > 0 && <div className="mt-0.5 text-[0.9375rem] break-words text-muted">{d.notes.join('；')}</div>}
-                  </td>
-                  {d.slots.map((list, i) => (
-                    <td key={i} className="border-b border-line px-1.5 py-2.5 align-top print:border-[#999]">
-                      {list.length ? list.map((r, j) => <Reading key={j} r={r} />) : '--'}
-                    </td>
-                  ))}
-                  <td className="border-b border-line px-1.5 py-2.5 align-top whitespace-nowrap print:border-[#999]">{d.took ? '有吃' : '沒吃'}</td>
-                </tr>
-              ))}
-            </tbody>
+            {groups.map((rows) => (
+              <tbody key={rows[0].date} className="border-b border-line print:break-inside-avoid print:border-[#999]">
+                {rows.map(({ rec, label, weekday, slot, time, firstOfDay }, i) => (
+                  <Fragment key={`${rec.at}-${rec.row ?? i}`}>
+                    <tr>
+                      <td className={`${cell} font-bold whitespace-nowrap`}>
+                        {firstOfDay && (
+                          <>
+                            {label}
+                            <span className="ml-1 text-sm font-normal text-muted">週{weekday}</span>
+                          </>
+                        )}
+                      </td>
+                      <td className={`${cell} whitespace-nowrap`}>
+                        {slot === 0 ? '早上' : '晚上'}
+                        {time && <span className="block text-sm text-muted print:ml-1.5 print:inline">{time}</span>}
+                      </td>
+                      <td className={`${cell} whitespace-nowrap`}>
+                        <span className={isHigh(rec.sys, rec.dia) ? hiMark : 'font-bold'}>
+                          {rec.sys}/{rec.dia}
+                        </span>
+                      </td>
+                      <td className={cell}>{Number.isFinite(rec.pulse) ? rec.pulse : '--'}</td>
+                      <td className={`${cell} whitespace-nowrap`}>{rec.med}</td>
+                    </tr>
+                    {rec.notes && (
+                      <tr>
+                        <td />
+                        <td colSpan={4} className="pb-2 text-[0.9375rem] break-words text-muted print:pb-1">
+                          狀況：{rec.notes}
+                        </td>
+                      </tr>
+                    )}
+                  </Fragment>
+                ))}
+              </tbody>
+            ))}
           </table>
 
           <ul className="mt-3 list-disc pl-[22px] text-[0.9375rem] text-muted">
-            <li>每一行是一次量測。</li>
-            <li>大字是血壓：收縮壓／舒張壓（mmHg）。</li>
-            <li>後面小字是脈搏（次／分鐘）。</li>
+            <li>每一列是一次量測，最新的在最上面。</li>
+            <li>血壓是「收縮壓／舒張壓」（mmHg），脈搏是每分鐘幾下。</li>
             <li>黃底表示高於家庭血壓參考值 135／85，僅供參考，請依醫師指示判斷。</li>
             <li>早上＝中午 12 點前記錄；晚上＝中午 12 點後記錄。</li>
-            <li>同一格有多行，代表那段時間量了不只一次。</li>
-            <li>「--」代表那段時間沒有紀錄。</li>
+            <li>同一天量了好幾次，會排在同一天底下，日期只寫一次。</li>
           </ul>
           <p className="mt-3 text-sm text-muted">整理日期：{dateText(today)}</p>
 
-          <button type="button" className={`${btnPrimary} print:hidden`} onClick={() => window.print()}>
-            列印／存成 PDF
-          </button>
+          <div className="mt-[26px] grid grid-cols-2 gap-2.5 print:hidden">
+            <button type="button" className={`${btnPrimary} mt-0 text-lg!`} onClick={() => window.print()}>
+              列印／存成 PDF
+            </button>
+            <button
+              type="button"
+              className={`${btnQuiet} min-h-[3.6rem] text-lg!`}
+              onClick={() => downloadCsv(reportToCsv(report), `血壓紀錄_${name}_${range.from}_${range.to}.csv`)}
+            >
+              下載 CSV
+            </button>
+          </div>
         </section>
       )}
     </>

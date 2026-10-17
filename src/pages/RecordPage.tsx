@@ -3,7 +3,8 @@ import { useQueryClient } from '@tanstack/react-query'
 import { addRecord, handleAuthError } from '../lib/api'
 import { flushPending } from '../lib/pending'
 import { pendingQueue } from '../lib/storage'
-import { dateText, WEEKDAYS } from '../lib/records'
+import { bpAdvice } from '../lib/advice'
+import { dateText, todayStatus, WEEKDAYS } from '../lib/records'
 import type { NewRecord } from '../lib/types'
 import { usePageTitle, usePendingCount, useRecords } from '../hooks/hooks'
 import { ResultDialog, type ResultInfo } from '../components/ResultDialog'
@@ -37,6 +38,15 @@ export default function RecordPage() {
   const [busy, setBusy] = useState(false)
   const [retrying, setRetrying] = useState(false)
   const [result, setResult] = useState<ResultInfo | null>(null)
+
+  // 今天早上、晚上各記錄了沒（還沒上傳、暫存在手機的也算）
+  const status = todayStatus(
+    [
+      ...(records.data ?? []).map((r) => ({ date: r.date, at: r.at })),
+      ...pendingQueue.read().map((p) => ({ date: p.date, at: p.clientAt ?? 0 })),
+    ],
+    todayIso,
+  )
   const closeResult = useCallback(() => setResult(null), [])
 
   const resetForm = () => {
@@ -113,10 +123,12 @@ export default function RecordPage() {
     if (!res.ok && res.code === 'NETWORK') {
       // 沒訊號：先存在手機，補送時帶著「當初按下儲存的時間」，早上／晚上才不會算錯
       pendingQueue.add({ ...params, clientAt: Date.now() })
+      const advice = bpAdvice(Number(params.systolic), Number(params.diastolic))
+      const saved = '現在連不上網路，資料先存在這支手機裡，有網路時會自動補送，請不要重複輸入。'
       setResult({
-        kind: 'warn',
-        title: '已暫存在手機',
-        detail: '現在連不上網路，資料先存在這支手機裡，有網路時會自動補送，請不要重複輸入。',
+        kind: advice ? (advice.level === 'veryHigh' ? 'urgent' : 'care') : 'warn',
+        title: advice ? `已暫存在手機，${advice.title}` : '已暫存在手機',
+        detail: advice ? [saved, advice.text].join('\n\n') : saved,
       })
       resetForm()
       return
@@ -130,10 +142,13 @@ export default function RecordPage() {
     if (res.duplicate) {
       setResult({ kind: 'ok', title: '已經儲存過了', detail: '這筆資料剛剛已經存好，不會重複記錄。' })
     } else {
+      // 血壓偏高、偏低時，給一段溫和的提醒（要按「好」才會關，一定看得到）
+      const advice = bpAdvice(Number(params.systolic), Number(params.diastolic))
+      const saved = `收縮壓 ${params.systolic} / 舒張壓 ${params.diastolic}，脈搏 ${params.pulse}`
       setResult({
-        kind: 'ok',
-        title: '已儲存',
-        detail: `收縮壓 ${params.systolic} / 舒張壓 ${params.diastolic}，脈搏 ${params.pulse}`,
+        kind: advice ? (advice.level === 'veryHigh' ? 'urgent' : 'care') : 'ok',
+        title: advice ? `已儲存，${advice.title}` : '已儲存',
+        detail: advice ? [saved, advice.text].join('\n\n') : saved,
       })
     }
     resetForm()
@@ -146,6 +161,24 @@ export default function RecordPage() {
       <p className="mt-1 text-muted">
         今天是 {today.getMonth() + 1} 月 {today.getDate()} 日（週{WEEKDAYS[today.getDay()]}）
       </p>
+
+      <div className="mt-4 grid grid-cols-2 gap-2.5" aria-label="今天的記錄狀況">
+        {(
+          [
+            ['早上', status.morning],
+            ['晚上', status.evening],
+          ] as const
+        ).map(([label, done]) => (
+          <div
+            key={label}
+            className={`rounded-card border-2 px-3 py-2.5 text-center font-bold ${
+              done ? 'border-teal bg-ok-bg text-teal-deep' : 'border-line bg-card text-muted'
+            }`}
+          >
+            {done ? `✓ ${label}已記錄` : `${label}還沒記錄`}
+          </div>
+        ))}
+      </div>
 
       {pendingCount > 0 && (
         <div role="status" className="mt-4 rounded-xl bg-warn-bg px-4 py-3.5 font-bold text-warn">

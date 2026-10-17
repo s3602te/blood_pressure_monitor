@@ -1,18 +1,14 @@
 import { useState, type FormEvent } from 'react'
-import { adminList, adminReset, errorOf } from '../lib/api'
+import { adminList, adminReset, errorOf, type AdminAccount } from '../lib/api'
+import { agoText, daysSince } from '../lib/records'
 import { usePageTitle } from '../hooks/hooks'
 import { btnPrimary, field, fieldHint, fieldLabel, input, pageTitle, statusBase, statusKind, wrap } from '../ui'
-
-interface Account {
-  username: string
-  displayName: string
-}
 
 /** 管理頁：幫忘記密碼的家人換新密碼。管理密碼只留在這個頁面的記憶體裡，關掉頁面就消失，不會存到瀏覽器。 */
 export default function AdminPage() {
   usePageTitle('管理')
   const [adminCode, setAdminCode] = useState('')
-  const [accounts, setAccounts] = useState<Account[] | null>(null)
+  const [accounts, setAccounts] = useState<AdminAccount[] | null>(null)
   const [selected, setSelected] = useState('')
   const [newPassword, setNewPassword] = useState('')
   const [busy, setBusy] = useState(false)
@@ -34,13 +30,13 @@ export default function AdminPage() {
     setStatus(result.accounts.length ? null : { text: '目前還沒有任何帳號', kind: 'info' })
   }
 
-  const label = (a: Account) =>
+  const label = (a: AdminAccount) =>
     a.displayName && a.displayName !== a.username ? `${a.displayName}（${a.username}）` : a.username
 
   const reset = async (e: FormEvent) => {
     e.preventDefault()
     if (busy || !accounts) return
-    const who = label(accounts.find((a) => a.username === selected) as Account)
+    const who = label(accounts.find((a) => a.username === selected) as AdminAccount)
     const password = newPassword
     setBusy(true)
     setStatus({ text: '重設中…', kind: 'info' })
@@ -60,6 +56,8 @@ export default function AdminPage() {
         <h1 className={`${pageTitle} mt-0! text-[2.125rem]!`}>管理：重設密碼</h1>
         <p className="mt-1 text-muted">幫忘記密碼的家人換一個新密碼。</p>
       </div>
+
+      {accounts && accounts.length > 0 && <AccountStatus accounts={accounts} label={label} />}
 
       {!accounts ? (
         <form onSubmit={unlock}>
@@ -126,5 +124,47 @@ export default function AdminPage() {
         重設後，對方在所有裝置上都會被登出，要用新密碼重新登入。紀錄不會消失。
       </p>
     </main>
+  )
+}
+
+/** 誰多久沒用了：最後使用＝最近一次打開網站，最後記錄＝最近一次存血壓。很久沒記錄的用橘色、紅色標出來。 */
+function AccountStatus({ accounts, label }: { accounts: AdminAccount[]; label: (a: AdminAccount) => string }) {
+  const now = new Date()
+  // 最久沒記錄的排最前面
+  const sorted = [...accounts].sort((a, b) => a.lastRecord - b.lastRecord)
+  const tone = (ms: number) => {
+    const d = daysSince(ms, now)
+    if (d === null || d >= 7) return 'font-black text-danger'
+    if (d >= 3) return 'font-bold text-warn'
+    return ''
+  }
+  return (
+    <section aria-label="帳號使用狀況" className="mt-6 rounded-card border border-line bg-card p-4">
+      <h2 className="text-xl font-black">帳號使用狀況</h2>
+      <table className="mt-2 w-full border-collapse text-left">
+        <thead>
+          <tr className="text-[0.9375rem] font-medium text-muted">
+            <th className="border-b-2 border-line py-1.5 pr-2 font-medium">帳號</th>
+            <th className="border-b-2 border-line py-1.5 pr-2 font-medium">最後使用</th>
+            <th className="border-b-2 border-line py-1.5 font-medium">最後記錄</th>
+          </tr>
+        </thead>
+        <tbody>
+          {sorted.map((a) => (
+            <tr key={a.username}>
+              <td className="border-b border-line py-2.5 pr-2 align-top break-all">{label(a)}</td>
+              <td className={`border-b border-line py-2.5 pr-2 align-top whitespace-nowrap ${tone(a.lastSeen)}`}>
+                {agoText(a.lastSeen, now)}
+              </td>
+              <td className={`border-b border-line py-2.5 align-top whitespace-nowrap ${tone(a.lastRecord)}`}>
+                {agoText(a.lastRecord, now)}
+                <span className="block text-sm font-normal text-muted">共 {a.count} 筆</span>
+              </td>
+            </tr>
+          ))}
+        </tbody>
+      </table>
+      <p className="mt-2 text-sm text-muted">橘色＝超過 3 天，紅色＝超過 7 天或從來沒有。最後使用從這次更新後才開始記錄。</p>
+    </section>
   )
 }

@@ -162,9 +162,30 @@ export interface ReportStats {
   peak: BpRecord
 }
 
+/** 報告裡的一列＝一次量測（日期、早晚、血壓、脈搏、吃藥、狀況）。最新的在最上面。 */
+export interface ReportRow {
+  rec: BpRecord
+  date: string
+  label: string
+  weekday: string
+  slot: 0 | 1
+  /** 記錄時間 HH:mm；很舊的資料沒有記錄時間就是空字串 */
+  time: string
+  /** 這是那一天的第一列（日期只在第一列顯示，同一天的其他列合併在下面） */
+  firstOfDay: boolean
+}
+
 export interface Report {
   days: ReportDay[]
+  /** 逐筆列表，由新到舊（和歷史頁的順序一致） */
+  rows: ReportRow[]
   stats: ReportStats
+}
+
+const timeOf = (at: number) => {
+  if (!at) return ''
+  const t = new Date(at)
+  return `${pad(t.getHours())}:${pad(t.getMinutes())}`
 }
 
 /** 整理某段期間的報告；那段期間沒有任何紀錄時回傳 null */
@@ -175,8 +196,21 @@ export function buildReport(records: BpRecord[], from: string, to: string): Repo
   const morning = days.flatMap((d) => d.slots[0])
   const evening = days.flatMap((d) => d.slots[1])
   const high = readings.filter((r) => isHigh(r.sys, r.dia)).length
+
+  // 由新到舊：日期新的在前；同一天晚上在前、早上在後，各自也是新的在前
+  const rows: ReportRow[] = []
+  for (const d of [...days].reverse()) {
+    const items = ([1, 0] as const).flatMap((slot) =>
+      [...d.slots[slot]].sort((a, b) => b.at - a.at).map((rec) => ({ rec, slot })),
+    )
+    items.forEach(({ rec, slot }, i) =>
+      rows.push({ rec, date: d.date, label: d.label, weekday: d.weekday, slot, time: timeOf(rec.at), firstOfDay: i === 0 }),
+    )
+  }
+
   return {
     days,
+    rows,
     stats: {
       avgBp: bpText(readings),
       avgPulse: mean(readings.map((r) => r.pulse)),
@@ -190,4 +224,106 @@ export function buildReport(records: BpRecord[], from: string, to: string): Repo
       peak: readings.reduce((a, b) => (b.sys > a.sys ? b : a)),
     },
   }
+}
+
+/* ───────────── 下載 CSV（用 Excel 或試算表開啟） ───────────── */
+
+// 以 = + - @ 開頭的文字，Excel 會當成公式執行，所以加上單引號強制當純文字
+const csvCell = (value: string | number) => {
+  let text = String(value)
+  if (/^[=+\-@]/.test(text)) text = "'" + text
+  return /[",\r\n]/.test(text) ? `"${text.replace(/"/g, '""')}"` : text
+}
+
+/** 把報告轉成 CSV。每一列是一次量測，由新到舊；開頭加 BOM，Excel 才不會把中文變亂碼。 */
+export function reportToCsv(report: Report): string {
+  const header = ['日期', '星期', '時段', '時間', '收縮壓', '舒張壓', '脈搏', '吃藥', '今日狀況']
+  const lines = report.rows.map((r) =>
+    [r.date, `週${r.weekday}`, r.slot === 0 ? '早上' : '晚上', r.time, r.rec.sys, r.rec.dia, r.rec.pulse, r.rec.med, r.rec.notes]
+      .map(csvCell)
+      .join(','),
+  )
+  return '\uFEFF' + [header.join(','), ...lines].join('\r\n') + '\r\n'
+}
+
+/* ───────────── 記錄頁：今天早上、晚上各記錄了沒 ───────────── */
+
+export interface TodayStatus {
+  morning: boolean
+  evening: boolean
+}
+
+/** 今天有沒有記錄：早上、晚上分開看（時段的算法和報告相同；沒有記錄時間的舊資料算早上） */
+export function todayStatus(items: { date: string; at: number }[], todayIso: string): TodayStatus {
+  const status: TodayStatus = { morning: false, evening: false }
+  for (const it of items) {
+    if (it.date !== todayIso) continue
+    if (!it.at || slotOf(it.at) === 0) status.morning = true
+    else status.evening = true
+  }
+  return status
+}
+
+/* ───────────── 歷史頁：這週和上週比 ───────────── */
+
+export interface WeekStats {
+  sys: number
+  dia: number
+  days: number
+}
+
+export type TrendKind = 'notEnough' | 'better' | 'worse' | 'steady' | 'steadyHigh' | 'mixed'
+
+export interface Trend {
+  kind: TrendKind
+  thisWeek: WeekStats | null
+  lastWeek: WeekStats | null
+  /** 這週減上週（mmHg）；負的代表比上週低 */
+  dSys: number
+  dDia: number
+}
+
+const MIN_DAYS = 3
+
+function weekStats(days: DayAgg[], from: string, to: string): WeekStats | null {
+  const list = days.filter((d) => d.iso >= from && d.iso <= to)
+  if (list.length < MIN_DAYS) return null
+  return { sys: average(list, 'sys') as number, dia: average(list, 'dia') as number, days: list.length }
+}
+
+/**
+ * 最近 7 天（含今天）和前 7 天的平均血壓比較。每週至少要有 3 天紀錄才比較。
+ * 差 2～3 mmHg 以內算「持平」；持平又在安全範圍（低於 135/85）就是「維持得很好」。
+ */
+export function weekTrend(days: DayAgg[], today: Date): Trend {
+  const thisWeek = weekStats(days, dateText(addDays(today, -6)), dateText(today))
+  const lastWeek = weekStats(days, dateText(addDays(today, -13)), dateText(addDays(today, -7)))
+  if (!thisWeek || !lastWeek) return { kind: 'notEnough', thisWeek, lastWeek, dSys: 0, dDia: 0 }
+
+  const dSys = thisWeek.sys - lastWeek.sys
+  const dDia = thisWeek.dia - lastWeek.dia
+  let kind: TrendKind
+  if ((dSys <= -3 || dDia <= -2) && dSys <= 2 && dDia <= 2) kind = 'better'
+  else if ((dSys >= 3 || dDia >= 2) && dSys >= -2 && dDia >= -2) kind = 'worse'
+  else if (Math.abs(dSys) <= 2 && Math.abs(dDia) <= 1) kind = thisWeek.sys >= HIGH_SYS || thisWeek.dia >= HIGH_DIA ? 'steadyHigh' : 'steady'
+  else kind = 'mixed'
+  return { kind, thisWeek, lastWeek, dSys, dDia }
+}
+
+/* ───────────── 管理頁：多久沒用 ───────────── */
+
+/** 距離現在幾天（用日曆日算：今天 0、昨天 1）；沒有時間（0）回傳 null */
+export function daysSince(ms: number, now: Date): number | null {
+  if (!ms) return null
+  const a = new Date(ms)
+  const dayStart = (d: Date) => new Date(d.getFullYear(), d.getMonth(), d.getDate()).getTime()
+  return Math.round((dayStart(now) - dayStart(a)) / 86400000)
+}
+
+export function agoText(ms: number, now: Date): string {
+  const d = daysSince(ms, now)
+  if (d === null) return '從來沒有'
+  if (d <= 0) return '今天'
+  if (d === 1) return '昨天'
+  return `${d} 天前`
 }
