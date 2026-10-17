@@ -123,10 +123,12 @@ export interface AdminAccount {
   lastSeen: number
   lastRecord: number
   count: number
+  /** 屬於哪一群（用哪一組邀請碼註冊的） */
+  group: string
 }
 
 export const adminList = (adminCode: string) =>
-  callApi<{ accounts: AdminAccount[] }>('adminList', { adminCode })
+  callApi<{ accounts: AdminAccount[]; groups?: string[] }>('adminList', { adminCode })
 
 export const adminDelete = (adminCode: string, username: string, deleteData: boolean) =>
   callApi('adminDelete', { adminCode, username, deleteData: String(deleteData) })

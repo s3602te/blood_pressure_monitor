@@ -87,6 +87,9 @@ repo 的 **Settings → Pages → Build and deployment → Source** 選 **GitHub
    | `REGISTER_CODE` | 註冊邀請碼，自己訂一組，只告訴家人（必填） |
    | `DISCORD_WEBHOOK` | Discord webhook 網址（選填） |
    | `LEGACY_OWNER` | 舊資料的主人帳號，例如 `mom`（選填） |
+   | `GROUPS` | 其他群組（選填）。每行一個「群組名稱=邀請碼」，例如 `小美家=abc123`（多個群組就多行，或用分號隔開） |
+   | `DEFAULT_GROUP_NAME` | 預設群組的名稱（選填，沒設就叫「家人」；用 `REGISTER_CODE` 註冊的人屬於這一群） |
+   | `DISCORD_WEBHOOK_群組名稱` | 那個群組自己的 Discord 提醒頻道，例如 `DISCORD_WEBHOOK_小美家`（選填；沒設就不發那一群的提醒） |
    | `ADMIN_CODE` | 管理頁面的管理密碼，要比邀請碼更難猜（要用管理頁面才需要） |
    | `SPREADSHEET_ID` | 指令碼綁在試算表裡可不填 |
 
@@ -106,6 +109,18 @@ repo 的 **Settings → Pages → Build and deployment → Source** 選 **GitHub
 - 備份失敗時（例如授權過期）會通知 Discord（要有設定 `DISCORD_WEBHOOK`）；也可以隨時到編輯器手動執行 `backupSpreadsheet`。
 - 還原：到雲端硬碟 →「血壓記錄備份」→ 在 .xlsx 上按右鍵 →「開啟方式」→「Google 試算表」，把需要的分頁複製回原本的試算表。
 - 備份包含所有帳號的資料分頁和「帳號」分頁（含密碼雜湊），和原本試算表放在同一個 Google 帳號底下，請不要把備份資料夾分享給別人。
+
+## 群組：讓不同的家庭分開管理
+
+- 所有人的資料都在**同一份「血壓」試算表**裡，每個人一個分頁；各群組只是「標籤」，不同群組的長輩彼此仍然看不到對方的紀錄。管理員（你）看得到所有人。
+- 做法：在「指令碼屬性」新增 `GROUPS`，一行一個群組，例如：
+  ```
+  小美家=abc123
+  ```
+  然後把 `abc123` 這組邀請碼只給小美家的人。用這組邀請碼建立帳號的人，就會被標成「小美家」；用原本 `REGISTER_CODE` 的人是預設群組「家人」。
+- 管理頁會顯示每個帳號屬於哪一群，並可以只看某一群。
+- Discord 提醒各群組分開：預設群組發到 `DISCORD_WEBHOOK`；小美家要另外建一個 Discord 頻道、把 webhook 存成 `DISCORD_WEBHOOK_小美家`。沒設的群組就不發提醒（不會誤發到你們家的頻道）。
+- 已經存在的帳號沒有群組標記，一律算預設群組；要改某個人的群組，到「帳號」分頁手動在「群組」欄填上群組名稱。
 
 ## 讓媽媽接手舊資料
 

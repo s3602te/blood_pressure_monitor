@@ -12,6 +12,8 @@ export default function AdminPage() {
   usePageTitle(T.admin.pageTitle)
   const [adminCode, setAdminCode] = useState('')
   const [accounts, setAccounts] = useState<AdminAccount[] | null>(null)
+  const [groups, setGroups] = useState<string[]>([])
+  const [groupFilter, setGroupFilter] = useState('')
   const [selected, setSelected] = useState('')
   const [newPassword, setNewPassword] = useState('')
   const [busy, setBusy] = useState(false)
@@ -30,6 +32,7 @@ export default function AdminPage() {
       return
     }
     setAccounts(result.accounts)
+    setGroups(result.groups ?? [])
     setSelected(result.accounts[0]?.username ?? '')
     setStatus(result.accounts.length ? null : { text: T.admin.noAccounts, kind: 'info' })
   }
@@ -64,7 +67,16 @@ export default function AdminPage() {
         <p className="mt-1 text-muted">{T.admin.intro}</p>
       </div>
 
-      {accounts && accounts.length > 0 && <AccountStatus accounts={accounts} label={label} onDelete={setDeleting} />}
+      {accounts && accounts.length > 0 && (
+        <AccountStatus
+          accounts={groupFilter ? accounts.filter((a) => a.group === groupFilter) : accounts}
+          label={label}
+          onDelete={setDeleting}
+          groups={groups}
+          groupFilter={groupFilter}
+          onGroupFilter={setGroupFilter}
+        />
+      )}
 
       {!accounts ? (
         <form onSubmit={unlock}>
@@ -140,6 +152,7 @@ export default function AdminPage() {
             const result = await adminList(adminCode)
             if (result.ok) {
               setAccounts(result.accounts)
+              setGroups(result.groups ?? [])
               setSelected(result.accounts[0]?.username ?? '')
             }
             setStatus({ text: T.admin.deleted(who), kind: 'ok' })
@@ -155,11 +168,18 @@ function AccountStatus({
   accounts,
   label,
   onDelete,
+  groups,
+  groupFilter,
+  onGroupFilter,
 }: {
   accounts: AdminAccount[]
   label: (a: AdminAccount) => string
   onDelete: (a: AdminAccount) => void
+  groups: string[]
+  groupFilter: string
+  onGroupFilter: (group: string) => void
 }) {
+  const showGroup = groups.length > 1 // 只有一群的時候不用顯示群組
   const now = new Date()
   // 最久沒記錄的排最前面
   const sorted = [...accounts].sort((a, b) => a.lastRecord - b.lastRecord)
@@ -172,6 +192,26 @@ function AccountStatus({
   return (
     <section aria-label={T.admin.statusTitle} className="mt-6 rounded-card border border-line bg-card p-4">
       <h2 className="text-xl font-black">{T.admin.statusTitle}</h2>
+      {showGroup && (
+        <div className="mt-2 flex items-center gap-2">
+          <label htmlFor="groupFilter" className="font-bold">
+            {T.admin.groupFilter}
+          </label>
+          <select
+            id="groupFilter"
+            className={`${input} min-h-11 w-auto px-3! py-1!`}
+            value={groupFilter}
+            onChange={(e) => onGroupFilter(e.target.value)}
+          >
+            <option value="">{T.admin.groupAll}</option>
+            {groups.map((g) => (
+              <option key={g} value={g}>
+                {g}
+              </option>
+            ))}
+          </select>
+        </div>
+      )}
       <table className="mt-2 w-full border-collapse text-left">
         <thead>
           <tr className="text-[0.9375rem] font-medium text-muted">
@@ -185,6 +225,7 @@ function AccountStatus({
             <tr key={a.username}>
               <td className="border-b border-line py-2.5 pr-2 align-top break-all">
                 {label(a)}
+                {showGroup && <span className="block text-sm font-normal text-muted">{a.group}</span>}
                 <button
                   type="button"
                   className={`${linkBtn} block py-1! text-[0.9375rem]! text-danger!`}

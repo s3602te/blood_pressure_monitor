@@ -32,8 +32,9 @@ rows[rows.length - 1].at += 1000
 
 let online = true
 const adminAccounts = [
-  { username: 'mom', displayName: '媽媽', lastSeen: Date.now(), lastRecord: daysAgo(5, 8).getTime(), count: 12 },
-  { username: 'dad', displayName: 'dad', lastSeen: 0, lastRecord: 0, count: 0 },
+  { username: 'mom', displayName: '媽媽', lastSeen: Date.now(), lastRecord: daysAgo(5, 8).getTime(), count: 12, group: '家人' },
+  { username: 'amei', displayName: '美美', lastSeen: Date.now(), lastRecord: daysAgo(1, 8).getTime(), count: 3, group: '小美家' },
+  { username: 'dad', displayName: 'dad', lastSeen: 0, lastRecord: 0, count: 0, group: '家人' },
 ]
 const deletedCalls = []
 const calls = []
@@ -65,7 +66,7 @@ function handle(p) {
       rows.forEach((x, k) => (x.row = k + 2))
       return ok()
     }
-    case 'adminList': return p.adminCode === 'boss' ? ok({ accounts: adminAccounts.map((a) => ({ ...a })) }) : { ok: false, error: '管理密碼不正確' }
+    case 'adminList': return p.adminCode === 'boss' ? ok({ accounts: adminAccounts.map((a) => ({ ...a })), groups: ['家人', '小美家'] }) : { ok: false, error: '管理密碼不正確' }
     case 'adminDelete': {
       if (p.adminCode !== 'boss') return { ok: false, error: '管理密碼不正確' }
       const i = adminAccounts.findIndex((a) => a.username === p.username)
@@ -361,6 +362,11 @@ try {
   await page.getByRole('button', { name: '進入' }).click()
   await page.locator('#account').waitFor()
   check(await page.getByText('帳號使用狀況').isVisible() && await page.getByText('從來沒有').first().isVisible(), '管理頁顯示各帳號最後使用／最後記錄')
+  check(await page.locator('section[aria-label="帳號使用狀況"] tbody').getByText('小美家', { exact: true }).isVisible(), '管理頁：有多個群組時，每個帳號標示屬於哪一群')
+  await page.locator('#groupFilter').selectOption('小美家')
+  check((await page.locator('section[aria-label="帳號使用狀況"] tbody tr').count()) === 1, '管理頁：可以只看某一群')
+  await page.locator('#groupFilter').selectOption('')
+  check((await page.locator('section[aria-label="帳號使用狀況"] tbody tr').count()) === 3, '管理頁：選「全部」回到所有人')
   check((await page.locator('section[aria-label="帳號使用狀況"] tbody tr').first().innerText()).includes('dad'), '最久沒記錄的排在最前面')
   await page.locator('#newPassword').fill('5678')
   await page.getByRole('button', { name: '重設密碼' }).click()

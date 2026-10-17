@@ -2,7 +2,11 @@
  * 血壓記錄 — Google Apps Script 後端（可安全上傳 git，內含零機密）
  *
  * 機密設定請放在「專案設定 → 指令碼屬性」，不要寫進程式碼：
- *   REGISTER_CODE    註冊邀請碼（必填；沒設定就沒有人能註冊）
+ *   REGISTER_CODE    註冊邀請碼（必填；沒設定就沒有人能註冊）。用這組邀請碼註冊的人屬於預設群組「家人」
+ *   GROUPS           其他群組（選填）：每行一個「群組名稱=邀請碼」，也可以用分號隔開。例如 小美家=abc123
+ *   DEFAULT_GROUP_NAME  預設群組的名稱（選填，沒設定就叫「家人」）
+ *   DISCORD_WEBHOOK_群組名稱  那個群組自己的 Discord 提醒頻道（選填，例如 DISCORD_WEBHOOK_小美家）；
+ *                    其他群組沒設定就不發提醒，避免提醒跑到別人家的頻道。預設群組用 DISCORD_WEBHOOK
  *   DISCORD_WEBHOOK  Discord 提醒用的 webhook 網址（選填）
  *   SPREADSHEET_ID   試算表 ID（選填；指令碼綁在試算表內可省略）
  *   LEGACY_OWNER     舊資料（「工作表1」）的主人帳號（選填，例如 mom）
@@ -14,7 +18,9 @@
 
 const ACCOUNT_SHEET = '帳號';
 const LEGACY_SHEET = '工作表1';
-const ACCOUNT_HEADERS = ['帳號', '顯示名稱', '資料分頁', 'salt', '密碼雜湊', '建立時間', '最後使用'];
+const ACCOUNT_HEADERS = ['帳號', '顯示名稱', '資料分頁', 'salt', '密碼雜湊', '建立時間', '最後使用', '群組'];
+const GROUP_COLUMN = 8;       // 「群組」在帳號分頁的第幾欄（空白＝預設群組）
+const DEFAULT_GROUP_NAME = '家人'; // 沒有另外設定時，預設群組的名稱
 const LAST_SEEN_COLUMN = 7;   // 「最後使用」在帳號分頁的第幾欄（管理頁用來看誰很久沒用）
 const DATA_HEADERS = ['日期', '收縮壓', '舒張壓', '脈搏', '緊張程度', '吃藥狀況', '今日狀況', '建立時間', '修改時間'];
 
@@ -73,6 +79,37 @@ function doGet() {
   return json_(fail_('請從血壓記錄網頁登入使用'));
 }
 
+/* ───────────── 群組 ───────────── */
+
+function defaultGroupName_() {
+  return prop_('DEFAULT_GROUP_NAME') || DEFAULT_GROUP_NAME;
+}
+
+// 所有群組：預設群組（邀請碼 REGISTER_CODE）＋ GROUPS 裡設定的其他群組
+function groupList_() {
+  const list = [];
+  const base = prop_('REGISTER_CODE');
+  if (base) list.push({ name: defaultGroupName_(), code: base, isDefault: true });
+  String(prop_('GROUPS') || '').split(/[\n;；]/).forEach(function (line) {
+    const i = line.indexOf('=');
+    if (i < 1) return;
+    const name = line.slice(0, i).trim();
+    const code = line.slice(i + 1).trim();
+    if (name && code) list.push({ name: name, code: code, isDefault: false });
+  });
+  return list;
+}
+
+// 這個群組的 Discord 頻道：預設群組用 DISCORD_WEBHOOK；其他群組要自己設 DISCORD_WEBHOOK_群組名稱，沒設就不發
+function groupWebhook_(group) {
+  return group.isDefault ? prop_('DISCORD_WEBHOOK') : prop_('DISCORD_WEBHOOK_' + group.name);
+}
+
+// 帳號列上的群組名稱（空白＝預設群組）
+function accountGroupName_(value) {
+  return String(value || '') || defaultGroupName_();
+}
+
 /* ───────────── 帳號 ───────────── */
 
 // 帳號就是手機號碼：把使用者不小心輸入的空白、橫線去掉（0912-345-678 → 0912345678）
@@ -81,13 +118,15 @@ function normalizeUsername_(text) {
 }
 
 function register_(p) {
-  const code = prop_('REGISTER_CODE');
-  if (!code) return fail_('尚未開放註冊，請管理員先設定邀請碼');
+  const groups = groupList_();
+  if (!groups.length) return fail_('尚未開放註冊，請管理員先設定邀請碼');
 
   const cache = CacheService.getScriptCache();
   const fails = Number(cache.get('invite_fails') || 0);
   if (fails >= MAX_INVITE_FAILS) return fail_('嘗試次數過多，請 10 分鐘後再試');
-  if (String(p.inviteCode || '') !== code) {
+  const invite = String(p.inviteCode || '');
+  const group = groups.filter(function (g) { return safeEqual_(invite, g.code); })[0];
+  if (!group) {
     cache.put('invite_fails', String(fails + 1), LOCK_SECONDS);
     return fail_('邀請碼不正確');
   }
@@ -125,8 +164,9 @@ function register_(p) {
 
   const salt = sha256_(Utilities.getUuid()).slice(0, 16);
   const displayName = String(p.displayName || '').trim().slice(0, 20) || username;
-  appendAccountRow_(accounts, [username, displayName, sheetName, salt, hashPassword_(salt, password), new Date(), new Date()]);
+  appendAccountRow_(accounts, [username, displayName, sheetName, salt, hashPassword_(salt, password), new Date(), new Date(), group.isDefault ? '' : group.name]);
   ensureLastSeenHeader_(accounts);
+  ensureGroupHeader_(accounts);
 
   return { ok: true, token: issueToken_(username), username: username, displayName: displayName };
 }
@@ -312,8 +352,8 @@ function listRecords_(p) {
 /* ───────────── Discord 提醒 ───────────── */
 
 // 有事情要立刻讓管理者知道（例如有人一直猜管理密碼、備份失敗、提醒大家量血壓）。沒設定 DISCORD_WEBHOOK 就略過。
-function notifyDiscord_(text) {
-  const url = prop_('DISCORD_WEBHOOK');
+function notifyDiscord_(text, webhookUrl) {
+  const url = webhookUrl || prop_('DISCORD_WEBHOOK');
   if (!url) return;
   try {
     UrlFetchApp.fetch(url, {
@@ -338,21 +378,26 @@ function sendDiscordReminder() {
 }
 
 function sendReminder_(slot) {
-  if (!prop_('DISCORD_WEBHOOK')) {
-    Logger.log('尚未設定 DISCORD_WEBHOOK，略過提醒');
-    return;
-  }
-  const missing = accountsMissing_(slot);
-  if (!missing.length) {
-    Logger.log('大家這個時段都記錄了，不提醒');
-    return;
-  }
   const label = slot === 'morning' ? '早上' : '晚上';
-  notifyDiscord_('🔔 **量血壓提醒**：' + missing.join('、') + ' 今天' + label + '還沒記錄血壓，量完記得到這裡記錄：' + SITE_URL);
+  // 每個群組各發各的頻道，只點名那個群組裡還沒記錄的人；沒設頻道的群組不發
+  const groups = groupList_();
+  (groups.length ? groups : [{ name: defaultGroupName_(), isDefault: true }]).forEach(function (group) {
+    const url = groupWebhook_(group);
+    if (!url) {
+      Logger.log('群組「' + group.name + '」沒有設定 Discord 頻道，略過提醒');
+      return;
+    }
+    const missing = accountsMissing_(slot, group);
+    if (!missing.length) {
+      Logger.log('群組「' + group.name + '」大家這個時段都記錄了，不提醒');
+      return;
+    }
+    notifyDiscord_('🔔 **量血壓提醒**：' + missing.join('、') + ' 今天' + label + '還沒記錄血壓，量完記得到這裡記錄：' + SITE_URL, url);
+  });
 }
 
-// 今天這個時段還沒有記錄的帳號（顯示名稱）。時段的算法和網站相同：凌晨 4 點到中午 12 點前是早上，其餘是晚上。
-function accountsMissing_(slot) {
+// 今天這個時段還沒有記錄的帳號（顯示名稱）；有指定群組就只看那一群。時段的算法和網站相同：凌晨 4 點到中午 12 點前是早上，其餘是晚上。
+function accountsMissing_(slot, group) {
   const ss = spreadsheet_();
   const tz = sheetTz_();
   const today = Utilities.formatDate(new Date(), tz, 'yyyy-MM-dd');
@@ -360,6 +405,7 @@ function accountsMissing_(slot) {
   const missing = [];
   for (let i = 1; i < rows.length; i++) {
     if (String(rows[i][0]) === '') continue;
+    if (group && accountGroupName_(rows[i][GROUP_COLUMN - 1]) !== group.name) continue; // 只看這個群組的人
     let done = false;
     const sheet = ss.getSheetByName(String(rows[i][2]));
     if (sheet && sheet.getLastRow() > 1) {
@@ -518,10 +564,11 @@ function adminList_(p) {
       displayName: String(rows[i][1]),
       lastSeen: seen instanceof Date ? seen.getTime() : 0,
       lastRecord: lastRecord,
-      count: count
+      count: count,
+      group: accountGroupName_(rows[i][GROUP_COLUMN - 1])
     });
   }
-  return { ok: true, accounts: accounts };
+  return { ok: true, accounts: accounts, groups: groupList_().map(function (g) { return g.name; }) };
 }
 
 function adminReset_(p) {
@@ -765,7 +812,8 @@ function findAccount_(username) {
         sheetName: String(rows[i][2]),
         salt: String(rows[i][3]),
         hash: String(rows[i][4]),
-        lastSeen: rows[i][LAST_SEEN_COLUMN - 1]
+        lastSeen: rows[i][LAST_SEEN_COLUMN - 1],
+        group: accountGroupName_(rows[i][GROUP_COLUMN - 1])
       };
     }
   }
@@ -822,4 +870,9 @@ function touchLastSeen_(row) {
 function ensureLastSeenHeader_(sheet) {
   const cell = sheet.getRange(1, LAST_SEEN_COLUMN);
   if (!cell.getValue()) cell.setValue(ACCOUNT_HEADERS[LAST_SEEN_COLUMN - 1]).setFontWeight('bold');
+}
+
+function ensureGroupHeader_(sheet) {
+  const cell = sheet.getRange(1, GROUP_COLUMN);
+  if (!cell.getValue()) cell.setValue(ACCOUNT_HEADERS[GROUP_COLUMN - 1]).setFontWeight('bold');
 }
