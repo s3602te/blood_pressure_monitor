@@ -49,6 +49,12 @@ export function VersionDialog({ username, onClose }: { username: string; onClose
       >
         {busy ? T.version.reloading : T.version.reload}
       </button>
+      <button type="button" className={`${btnQuiet} mt-3`} onClick={() => {
+          onClose() // 驗收單頁面在同一個外框裡，要先把這個視窗關掉
+          navigate('/checklist')
+        }}>
+        {T.version.checklist}
+      </button>
       <button type="button" className={`${btnQuiet} mt-3`} onClick={() => navigate('/admin')}>
         {T.version.admin}
       </button>

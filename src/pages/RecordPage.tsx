@@ -5,6 +5,9 @@ import { addRecord, handleAuthError } from '../lib/api'
 import { flushPending } from '../lib/pending'
 import { pendingQueue } from '../lib/storage'
 import { bpAdvice } from '../lib/advice'
+import { bpOrderWrong } from '../lib/validate'
+import { stampMessage, type StampItem } from '../lib/stamps'
+import { StampCard } from '../components/StampCard'
 import { dateText, todayStatus, WEEKDAYS } from '../lib/records'
 import { MED_OPTIONS, type NewRecord } from '../lib/types'
 import { T } from '../text'
@@ -20,7 +23,7 @@ const newRequestId = () =>
 
 // 血壓計螢幕上的大數字輸入框
 const bigInput =
-  'w-full border-0 border-b-[3px] border-white/30 bg-transparent pb-0.5 text-[60px] leading-[1.15] font-black text-white tabular-nums placeholder:text-white/25 focus:border-glow focus:outline-none max-[380px]:text-[50px] [appearance:textfield] [&::-webkit-inner-spin-button]:appearance-none [&::-webkit-outer-spin-button]:appearance-none'
+  'w-full border-0 border-b-[3px] border-white/30 bg-transparent pb-0.5 text-[60px] leading-[1.15] font-black text-white tabular-nums placeholder:text-white/25 focus:border-glow focus:outline-none aria-invalid:border-[#ff8a7a] aria-invalid:text-[#ffb4a8] max-[380px]:text-[50px] [appearance:textfield] [&::-webkit-inner-spin-button]:appearance-none [&::-webkit-outer-spin-button]:appearance-none'
 
 export default function RecordPage() {
   usePageTitle(T.record.pageTitle)
@@ -41,15 +44,14 @@ export default function RecordPage() {
   const [retrying, setRetrying] = useState(false)
   const [result, setResult] = useState<ResultInfo | null>(null)
 
-  // 今天早上、晚上各記錄了沒（還沒上傳、暫存在手機的也算）
-  const status = todayStatus(
-    [
-      ...(records.data ?? []).map((r) => ({ date: r.date, at: r.at })),
-      ...pendingQueue.read().map((p) => ({ date: p.date, at: p.clientAt ?? 0 })),
-    ],
-    todayIso,
-  )
+  // 所有有記錄的日子（還沒上傳、暫存在手機的也算）：算今天早晚各記錄了沒，也用來蓋章
+  const stampItems: StampItem[] = [
+    ...(records.data ?? []).map((r) => ({ date: r.date, at: r.at })),
+    ...pendingQueue.read().map((p) => ({ date: p.date, at: p.clientAt ?? 0 })),
+  ]
+  const status = todayStatus(stampItems, todayIso)
   const closeResult = useCallback(() => setResult(null), [])
+  const orderWrong = bpOrderWrong(sys, dia) // 收縮壓比舒張壓小或一樣（多半是填反了）：輸入的當下就提醒
 
   const resetForm = () => {
     setSys('')
@@ -106,6 +108,10 @@ export default function RecordPage() {
   const onSubmit = async (e: FormEvent) => {
     e.preventDefault()
     if (busy) return
+    if (orderWrong) {
+      document.getElementById('systolic')?.focus() // 填反了就不送出，游標回到高壓欄
+      return
+    }
 
     const params: NewRecord = {
       date,
@@ -127,10 +133,11 @@ export default function RecordPage() {
       pendingQueue.add({ ...params, clientAt: Date.now() })
       const advice = bpAdvice(Number(params.systolic), Number(params.diastolic))
       const saved = T.record.queuedDetail
+      const stamp = advice?.level === 'veryHigh' ? [] : stampMessage(stampItems, { date: params.date, at: Date.now() }, new Date())
       setResult({
         kind: advice ? (advice.level === 'veryHigh' ? 'urgent' : 'care') : 'warn',
         title: advice ? T.record.queuedWithAdvice(advice.title) : T.record.queuedTitle,
-        detail: advice ? [saved, advice.text].join('\n\n') : saved,
+        detail: [saved, stamp.join('\n'), advice?.text].filter(Boolean).join('\n\n'),
       })
       resetForm()
       return
@@ -147,10 +154,12 @@ export default function RecordPage() {
       // 血壓偏高、偏低時，給一段溫和的提醒（要按「好」才會關，一定看得到）
       const advice = bpAdvice(Number(params.systolic), Number(params.diastolic))
       const saved = T.record.savedDetail(params.systolic, params.diastolic, params.pulse)
+      // 蓋章的鼓勵話（數值很高時不慶祝，先請他注意身體）
+      const stamp = advice?.level === 'veryHigh' ? [] : stampMessage(stampItems, { date: params.date, at: Date.now() }, new Date())
       setResult({
         kind: advice ? (advice.level === 'veryHigh' ? 'urgent' : 'care') : 'ok',
         title: advice ? T.record.savedWithAdvice(advice.title) : T.record.savedTitle,
-        detail: advice ? [saved, advice.text].join('\n\n') : saved,
+        detail: [saved, stamp.join('\n'), advice?.text].filter(Boolean).join('\n\n'),
       })
     }
     resetForm()
@@ -163,6 +172,8 @@ export default function RecordPage() {
       <p className="mt-1 text-muted">
         {T.record.today(today.getMonth() + 1, today.getDate(), WEEKDAYS[today.getDay()])}
       </p>
+
+      <StampCard items={stampItems} />
 
       <div className="mt-4 grid grid-cols-2 gap-2.5" aria-label={T.record.statusAria}>
         {(
@@ -208,6 +219,7 @@ export default function RecordPage() {
                 max={300}
                 placeholder="120"
                 required
+                aria-invalid={orderWrong}
                 value={sys}
                 onChange={(e) => setSys(e.target.value)}
               />
@@ -228,6 +240,7 @@ export default function RecordPage() {
                 max={200}
                 placeholder="80"
                 required
+                aria-invalid={orderWrong}
                 value={dia}
                 onChange={(e) => setDia(e.target.value)}
               />
@@ -252,6 +265,12 @@ export default function RecordPage() {
             <span className="text-[0.9375rem] text-[#a9c7c8]">{T.record.pulseUnit}</span>
           </div>
         </div>
+
+        {orderWrong && (
+          <p role="alert" className="mt-3 rounded-xl bg-danger-bg px-4 py-3 text-lg font-black text-danger">
+            {T.record.orderWarning}
+          </p>
+        )}
 
         <div className={field}>
           <label htmlFor="date" className={fieldLabel}>

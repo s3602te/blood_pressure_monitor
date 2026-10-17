@@ -10,6 +10,7 @@ import RecordPage from './pages/RecordPage'
 // 圖表（Chart.js）比較大，只有打開歷史頁才下載，記錄頁開得更快
 const HistoryPage = lazy(() => import('./pages/HistoryPage'))
 const DoctorPage = lazy(() => import('./pages/DoctorPage'))
+const ChecklistPage = lazy(() => import('./pages/ChecklistPage'))
 
 export const queryClient = new QueryClient({
   defaultOptions: { queries: { retry: false, refetchOnWindowFocus: true } },
@@ -28,6 +29,7 @@ export default function App() {
             <Route index element={<RecordPage />} />
             <Route path="history" element={<HistoryPage />} />
             <Route path="doctor" element={<DoctorPage />} />
+            <Route path="checklist" element={<ChecklistPage />} />
           </Route>
           <Route path="*" element={<Navigate to="/" replace />} />
         </Routes>

@@ -177,6 +177,8 @@ export interface ReportRow {
 }
 
 export interface Report {
+  /** 這段期間（已去除重複）的每一筆量測，畫圖用 */
+  readings: BpRecord[]
   days: ReportDay[]
   /** 逐筆列表，由新到舊（和歷史頁的順序一致） */
   rows: ReportRow[]
@@ -210,6 +212,7 @@ export function buildReport(records: BpRecord[], from: string, to: string): Repo
   }
 
   return {
+    readings,
     days,
     rows,
     stats: {
@@ -258,6 +261,38 @@ export function reportToCsv(report: Report, includeNotes = true): string {
       .join(','),
   )
   return '\uFEFF' + [header.join(','), ...lines].join('\r\n') + '\r\n'
+}
+
+/* ───────────── 圖表：早晚一起看／只看早上／只看晚上 ───────────── */
+
+export type ChartMode = 'all' | 'morning' | 'evening'
+
+/**
+ * 依時段重新算每天的數字：'all' 原樣；'morning'／'evening' 只用那個時段的量測重算每天的平均，
+ * 那一天那個時段沒有量就不畫那一天。時段的算法和報告相同（groupByDay）。
+ */
+export function filterBySlot(days: DayAgg[], mode: ChartMode): DayAgg[] {
+  if (mode === 'all') return days
+  const want = mode === 'morning' ? 0 : 1
+  const out: DayAgg[] = []
+  for (const d of days) {
+    const items = groupByDay(d.items)[0]?.slots[want] ?? []
+    if (!items.length) continue
+    const notes: string[] = []
+    items.forEach((r) => {
+      if (r.notes && !notes.includes(r.notes)) notes.push(r.notes)
+    })
+    out.push({
+      ...d,
+      sys: mean(items.map((r) => r.sys)) as number,
+      dia: mean(items.map((r) => r.dia)) as number,
+      pulse: mean(items.map((r) => r.pulse)),
+      med: items.some((r) => r.med === MED_YES) ? MED_YES : MED_NO,
+      notes: notes.join('；'),
+      items,
+    })
+  }
+  return out
 }
 
 /* ───────────── 記錄頁：今天早上、晚上各記錄了沒 ───────────── */

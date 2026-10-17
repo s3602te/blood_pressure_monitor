@@ -1,16 +1,19 @@
 import { useEffect, useMemo, useState } from 'react'
 import { Link } from 'react-router-dom'
 import { ChartPanel } from '../components/ChartPanel'
+import { ChartModeSwitch, chartCaption } from '../components/ChartModeSwitch'
 import { DayDialog } from '../components/DayDialog'
 import { TrendCard } from '../components/TrendCard'
 import { UndoToast } from '../components/UndoToast'
 import { usePageTitle, useRecords, useRefreshRecords } from '../hooks/hooks'
-import { aggregateByDate, average, HIGH_DIA, HIGH_SYS, monthSummary, weekTrend } from '../lib/records'
+import { aggregateByDate, average, filterBySlot, HIGH_DIA, HIGH_SYS, monthSummary, weekTrend, type ChartMode } from '../lib/records'
 import type { BpRecord } from '../lib/types'
 import { T } from '../text'
 import { btnPrimary, btnQuiet, card, hiMark, input, linkBtn, pageTitle } from '../ui'
 
 const PER_PAGE = 7
+
+const emptyChart = (mode: ChartMode) => (mode === 'morning' ? T.chart.emptyMorning : T.chart.emptyEvening)
 
 export default function HistoryPage() {
   usePageTitle(T.history.pageTitle)
@@ -21,6 +24,7 @@ export default function HistoryPage() {
   const month = useMemo(() => monthSummary(days, new Date()), [days])
 
   const [page, setPage] = useState(1) // 第 1 頁 = 最新的 7 天
+  const [chartMode, setChartMode] = useState<ChartMode>('all') // 圖表：早晚一起（預設）／只看早上／只看晚上
   const [openIso, setOpenIso] = useState<string | null>(null) // 打開「修改」視窗的那一天
   const [deleted, setDeleted] = useState<BpRecord | null>(null) // 剛刪除的那一筆（15 秒內可以復原）
 
@@ -79,7 +83,11 @@ export default function HistoryPage() {
           <TrendCard trend={trend} />
 
           <section className={card} aria-label={T.history.chartAria}>
-            <ChartPanel days={slice} />
+            <ChartModeSwitch value={chartMode} onChange={setChartMode} />
+            <div className="mt-3">
+              <ChartPanel days={filterBySlot(slice, chartMode)} emptyText={emptyChart(chartMode)} />
+            </div>
+            <p className="mt-2 text-sm text-muted">{chartCaption(chartMode)}</p>
             <ul className="mt-3 list-disc pl-[22px] text-[0.9375rem] text-muted">
               {T.history.chartNotes.map((line) => (
                 <li key={line}>{line}</li>
@@ -169,8 +177,9 @@ export default function HistoryPage() {
                 {T.history.month.summary(month.from.slice(5).replace('-', '/'), month.to.slice(5).replace('-', '/'), month.avgBp)}
               </p>
               <p className="text-[0.9375rem] text-muted">{T.history.month.days(month.count, month.highDays)}</p>
+              <ChartModeSwitch value={chartMode} onChange={setChartMode} />
               <div className="mt-3">
-                <ChartPanel days={month.days} compact />
+                <ChartPanel days={filterBySlot(month.days, chartMode)} compact emptyText={emptyChart(chartMode)} />
               </div>
               <p className="mt-2 text-sm text-muted">{T.history.month.note}</p>
             </section>

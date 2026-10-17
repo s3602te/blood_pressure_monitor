@@ -2,6 +2,7 @@ import { useState, type FormEvent } from 'react'
 import { deleteRecord, errorOf, handleAuthError, updateRecord, type RecordRef } from '../lib/api'
 import { dateText, isHigh, pad, slotName, type DayAgg } from '../lib/records'
 import { MED_OPTIONS, type BpRecord } from '../lib/types'
+import { bpOrderWrong } from '../lib/validate'
 import { T } from '../text'
 import { btnDanger, btnPrimary, btnQuiet, field, fieldLabel, hiMark, input, segInput, segLabel, segWrap } from '../ui'
 import { Modal } from './Modal'
@@ -143,8 +144,11 @@ function EditForm({ record, busy, onCancel, onSubmit }: EditProps) {
   const [med, setMed] = useState(record.med)
   const [notes, setNotes] = useState(record.notes || '')
 
+  const orderWrong = bpOrderWrong(sys, dia)
+
   const submit = (e: FormEvent) => {
     e.preventDefault()
+    if (orderWrong) return // 填反了不送出，上面已經有紅字說明
     void onSubmit({ date, systolic: sys, diastolic: dia, pulse, medication: med, notes })
   }
 
@@ -168,6 +172,11 @@ function EditForm({ record, busy, onCancel, onSubmit }: EditProps) {
         </label>
         <input id="editDia" className={input} type="number" inputMode="numeric" min={30} max={200} required value={dia} onChange={(e) => setDia(e.target.value)} />
       </div>
+      {orderWrong && (
+        <p role="alert" className="mt-3 rounded-xl bg-danger-bg px-3.5 py-3 font-bold text-danger">
+          {T.day.orderWarning}
+        </p>
+      )}
       <div className={field}>
         <label className={fieldLabel} htmlFor="editPulse">
           {T.common.pulse}

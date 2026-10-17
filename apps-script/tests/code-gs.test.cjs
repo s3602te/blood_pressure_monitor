@@ -180,5 +180,20 @@ let threw = false;
 try { run("backupSpreadsheet()"); } catch (e) { threw = true; }
 ok(threw && ctx.alerts === alertsBefore + 1, "備份失敗會通知 Discord 並回報錯誤");
 
+
+// ---- 收縮壓一定要比舒張壓大（長輩常填反）----
+const rowsBefore = sheetRows.length;
+let flip = run("addRecord_({token:'t',date:'2026-10-16',systolic:'80',diastolic:'120',pulse:'70',medication:'有吃'})");
+ok(!flip.ok && flip.error.includes("要比舒張壓"), "新增：收縮壓小於舒張壓（填反）會被擋");
+flip = run("addRecord_({token:'t',date:'2026-10-16',systolic:'100',diastolic:'100',pulse:'70',medication:'有吃'})");
+ok(!flip.ok, "新增：收縮壓等於舒張壓也不行");
+ok(sheetRows.length === rowsBefore, "被擋下的資料不會寫進試算表");
+const target = sheetRows.length - 1;
+const tgt = sheetRows[target];
+const tgtAt = tgt[7] instanceof Date ? tgt[7].getTime() : 0;
+flip = run(`updateRecord_({token:'t',row:${target + 1},origAt:${tgtAt},origDate:'${tgt[0] instanceof Date ? "" : tgt[0]}',date:'2026-10-16',systolic:'90',diastolic:'130',pulse:'70',medication:'有吃'})`);
+ok(!flip.ok && !String(flip.code || "").includes("STALE") || flip.error.includes("要比舒張壓"), "修改：填反也會被擋（在核對列號之前就擋下）");
+ok(run("addRecord_({token:'t',requestId:'ok-order',date:'2026-10-16',systolic:'121',diastolic:'79',pulse:'66',medication:'有吃'})").ok, "正常的 121/79 照常儲存");
+
 console.log(fails ? "有失敗" : "全部通過");
 process.exit(fails ? 1 : 0);

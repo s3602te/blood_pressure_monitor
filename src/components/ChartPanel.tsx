@@ -62,7 +62,16 @@ const refLines: Plugin<'line'> = {
  * 點一下可以看脈搏和吃藥。
  * compact＝最近 1 個月用：點比較小、日期標籤自動稀疏（不然 30 個日期會擠在一起）。
  */
-export function ChartPanel({ days, compact = false }: { days: DayAgg[]; compact?: boolean }) {
+export function ChartPanel({
+  days,
+  compact = false,
+  emptyText,
+}: {
+  days: DayAgg[]
+  compact?: boolean
+  /** 這個時段完全沒有資料時，顯示這句話取代空白的圖 */
+  emptyText?: string
+}) {
   const k = useLargeFont() ? 1.25 : 1 // 放大字體時圖表文字一起放大
 
   const line = (label: string, key: 'sys' | 'dia', color: string, limit: number) => {
@@ -82,8 +91,16 @@ export function ChartPanel({ days, compact = false }: { days: DayAgg[]; compact?
     }
   }
 
+  if (!days.length) {
+    return (
+      <div className="flex h-[160px] items-center justify-center rounded-card bg-paper px-4 text-center text-muted">
+        {emptyText ?? T.common.none}
+      </div>
+    )
+  }
+
   return (
-    <div className="relative h-[300px]">
+    <div className="relative h-[300px]" data-points={days.map((d) => `${d.label}:${d.sys}/${d.dia}`).join(',')}>
       <Line
         aria-label={compact ? T.history.month.title : T.history.chartAria}
         role="img"

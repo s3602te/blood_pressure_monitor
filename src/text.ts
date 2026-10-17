@@ -72,6 +72,7 @@ export const T = {
     reload: '清除快取並重新載入',
     reloading: '重新載入中…',
     admin: '管理員頁面',
+    checklist: '真機驗收單',
   },
 
   // ───────── 記錄頁 ─────────
@@ -92,6 +93,7 @@ export const T = {
     optional: '（選填）',
     notesPlaceholder: '例如：心情好、有點累、壓力大',
     submit: '儲存紀錄',
+    orderWarning: '收縮壓（高壓）要比舒張壓（低壓）大，請確認有沒有填反。',
 
     // 儲存結果視窗
     savedTitle: '已儲存',
@@ -175,6 +177,53 @@ export const T = {
     },
   },
 
+  // 連續簽到／蓋章（記錄頁上方的「蓋章卡」，以及儲存後的鼓勵話）
+  stamp: {
+    title: '我的蓋章卡',
+    streak: (n: number) => `連續 ${n} 天`,
+    today: '今天',
+    stampedAria: (label: string) => `${label} 已蓋章`,
+    emptyAria: (label: string) => `${label} 還沒蓋章`,
+    starAria: '早上和晚上都量了，多一顆星',
+    startHint: '今天記錄血壓，就能蓋下第一個章',
+    todayTodo: '今天記錄血壓，就能蓋今天的章',
+    todayDone: '今天的章蓋好了，明天繼續！',
+    restart: (best: number) => `沒關係，今天重新開始蓋章。你最長的紀錄是 ${best} 天。`,
+    next: (days: number, name: string) => `再 ${days} 天，就能得到「${name}」`,
+    allDone: '所有的章都拿到了，太厲害了！',
+    badges: '我得到的章',
+    noBadges: '連續記錄 3 天，就能得到第一個章',
+    star: '早晚都量，多得一顆星',
+    firstStamp: '蓋章完成！從今天開始連續記錄',
+    celebration: (n: number) => `蓋章完成！連續 ${n} 天`,
+    stampedPast: '這一天的章蓋好了',
+    milestone: (name: string) => `得到新的章：「${name}」！`,
+    bothSlots: '今天早晚都量了，多得一顆星！',
+    milestones: [
+      { days: 3, name: '3 天小章' },
+      { days: 7, name: '7 天銅章' },
+      { days: 14, name: '14 天銀章' },
+      { days: 30, name: '30 天金章' },
+      { days: 60, name: '60 天白金章' },
+      { days: 100, name: '100 天鑽石章' },
+      { days: 200, name: '200 天傳奇章' },
+      { days: 365, name: '365 天滿年章' },
+    ],
+  },
+
+  // 圖表：早晚一起看／只看早上／只看晚上
+  chart: {
+    modeAria: '圖表要看哪個時段',
+    all: '早晚一起',
+    morning: '只看早上',
+    evening: '只看晚上',
+    emptyMorning: '這段時間沒有早上的紀錄',
+    emptyEvening: '這段時間沒有晚上的紀錄',
+    captionAll: '圖表：早晚一起看（每個點是那一天所有量測的平均）',
+    captionMorning: '圖表：只看早上（中午 12 點前記錄的）',
+    captionEvening: '圖表：只看晚上（中午 12 點後記錄的）',
+  },
+
   // 「和上週比較」卡片
   trend: {
     title: '和上週比較',
@@ -206,6 +255,7 @@ export const T = {
     deleteConfirm: (what: string) => `確定要刪除這筆紀錄嗎？\n\n${what}\n\n刪除後無法復原。`,
     deleteWhat: (date: string, sys: number, dia: number, pulse: string) => `${date}　${sys}/${dia}　脈搏 ${pulse}`,
     failedFallback: '沒有成功，請再試一次',
+    orderWarning: '收縮壓（高壓）要比舒張壓（低壓）大，請確認有沒有填反。',
     editDate: '日期',
     editNotes: '今天的狀況',
     save: '儲存修改',
@@ -237,6 +287,7 @@ export const T = {
     emptyTitle: '這段時間沒有紀錄',
     emptyText: '換一個時間範圍試試看。',
     reportTitle: '血壓紀錄',
+    chartTitle: '血壓走勢圖',
     stats: {
       avg: '平均血壓',
       avgSub: (pulse: string) => `脈搏 ${pulse}`,
@@ -309,6 +360,108 @@ export const T = {
     // 沒有「自動寄信」或「自動通知」功能，所以只寫要找誰，字小一點
     forgot: '忘記密碼？請直接聯絡序亞，由他幫你重設。（網站不會自動寄信，也不會自動通知。）',
     helpLink: '第一次使用？看使用教學',
+  },
+
+  // ───────── 真機驗收單（用真的手機把每個功能試一遍，邊試邊勾）─────────
+  checklist: {
+    pageTitle: '真機驗收單',
+    heading: '真機驗收單',
+    intro: '拿真的手機，照順序一項一項試。每一項按「正常」或「有問題」，勾的結果會記在這支手機上，關掉再開還在。',
+    deviceLabel: '這支手機是什麼？',
+    devicePlaceholder: '例如：iPhone 14、iOS 18、Safari 加到主畫面',
+    progress: (done: number, total: number, bad: number) => `已測 ${done} / ${total} 項，有問題 ${bad} 項`,
+    expect: '看到：',
+    ok: '正常',
+    bad: '有問題',
+    copy: '複製測試結果',
+    copied: '已複製。貼給 Claude 就可以了。',
+    copyFallback: '請按住下面的文字，全選後複製：',
+    reset: '全部重來',
+    resetConfirm: '要把所有的勾選都清掉，重新測試嗎？',
+    noProblem: '目前沒有發現問題。',
+    summary: (device: string, done: number, total: number, bad: string[]) =>
+      [
+        `手機：${device || '（沒填）'}`,
+        `已測 ${done} / ${total} 項，有問題 ${bad.length} 項`,
+        bad.length ? '有問題的項目：' : '沒有發現問題。',
+        ...bad.map((b) => `- ${b}`),
+      ].join('\n'),
+    sections: [
+      {
+        title: '一、加到手機桌面',
+        items: [
+          { id: 'home-add', text: '照「使用教學」把網站加到手機桌面', expect: '桌面出現「血壓記錄」圖示，圖示清楚、名稱正確' },
+          { id: 'home-open', text: '從桌面圖示打開', expect: '整個畫面是全螢幕（沒有網址列），下方三個分頁沒有被手機底部的橫條擋住' },
+        ],
+      },
+      {
+        title: '二、登入與帳號',
+        items: [
+          { id: 'login', text: '登出後，用測試帳號登入', expect: '登入成功，進到記錄頁' },
+          { id: 'register-keyboard', text: '點「建立帳號」，點帳號欄位', expect: '跳出數字鍵盤；輸入不是 10 碼會被擋下並說明怎麼填' },
+          { id: 'stay-login', text: '把 App 完全關掉再重開', expect: '不用重新登入' },
+        ],
+      },
+      {
+        title: '三、記錄血壓',
+        items: [
+          { id: 'save-ok', text: '輸入 120 / 80、脈搏 70，選「有吃」，按「儲存紀錄」', expect: '出現「已儲存」，約 4 秒自動關閉，上方對應的「早上」或「晚上」變綠色打勾' },
+          { id: 'stamp-card', text: '看記錄頁上方的「我的蓋章卡」', expect: '有 7 個圓圈（最後一個是今天）；有記錄的那天蓋了章，今天的圈圈有外框' },
+          { id: 'stamp-save', text: '今天第一次儲存血壓後', expect: '「已儲存」視窗裡多一句「蓋章完成！連續 N 天」，蓋章卡上今天的圈圈變成蓋好的章' },
+          { id: 'order-warning', text: '輸入收縮壓 80、舒張壓 120（故意填反）', expect: '輸入的當下就出現紅字提醒，按儲存也不會送出' },
+          { id: 'advice-high', text: '輸入 150 / 92 後儲存', expect: '跳出橘色「這次偏高」提醒，要按「好」才會關' },
+          { id: 'advice-veryhigh', text: '輸入 185 / 115 後儲存', expect: '跳出紅色「數值很高」提醒，有提到 119' },
+        ],
+      },
+      {
+        title: '四、沒有網路',
+        items: [
+          { id: 'offline-save', text: '開啟飛航模式，記錄一筆血壓', expect: '出現「已暫存在手機」，頁面上方有「目前沒有網路」' },
+          { id: 'offline-sync', text: '關掉飛航模式，等一下或按「現在重試上傳」', expect: '補送成功，歷史頁出現那一筆，而且只有一筆（沒有重複）' },
+        ],
+      },
+      {
+        title: '五、歷史紀錄',
+        items: [
+          { id: 'history-chart', text: '打開「歷史紀錄」看圖', expect: '藍線是收縮壓、綠線是舒張壓，圖例的顏色正確；偏高的點變大、有橘色外圈' },
+          { id: 'history-switch', text: '按「只看早上」「只看晚上」「早晚一起」', expect: '圖會跟著改變；某個時段完全沒有紀錄時，顯示一句說明而不是空白' },
+          { id: 'history-trend', text: '看「和上週比較」和最下面的「最近 1 個月」', expect: '卡片和圖都有出現，文字看得懂' },
+          { id: 'history-edit', text: '按日期下面的「修改」，改一筆數字後儲存', expect: '數字變了；把高低壓填反會被擋下並顯示紅字' },
+          { id: 'history-undo', text: '刪除一筆，立刻按下方的「復原」', expect: '15 秒內按得到，紀錄回來了' },
+        ],
+      },
+      {
+        title: '六、給醫師看',
+        items: [
+          { id: 'doctor-range', text: '選「近 30 天」和「自訂」', expect: '統計、圖表和表格都跟著更新' },
+          { id: 'doctor-chart', text: '看圖表，切換「只看早上／只看晚上」', expect: '圖表出現並隨著切換改變，下面有一行說明現在看的是哪個時段' },
+          { id: 'doctor-notes', text: '取消勾選「報告裡包含備註」', expect: '表格裡的「狀況：…」消失；再勾回來又出現' },
+          { id: 'doctor-pdf', text: '按「PDF」', expect: '列印預覽裡有圖表和表格，版面不是窄窄的手機版面' },
+          { id: 'doctor-csv', text: '按「CSV」', expect: '下載到檔案，用試算表或 Excel 打得開，中文沒有亂碼' },
+        ],
+      },
+      {
+        title: '七、放大字',
+        items: [
+          { id: 'font-large', text: '按右上角「放大」', expect: '整個網站的字變大，沒有被切掉或擠出畫面；再按一次「縮小」會回來' },
+          { id: 'font-remember', text: '把 App 關掉再開', expect: '字體大小還是你上次選的' },
+        ],
+      },
+      {
+        title: '八、其他',
+        items: [
+          { id: 'help-page', text: '在登入頁最下面點「看使用教學」', expect: '教學頁的圖解看得到、看得懂' },
+          { id: 'version-info', text: '連點左上角「血壓記錄」5 下', expect: '跳出版本資訊，連點多按幾下也不會消失；版本和 GitHub 最新一筆一致' },
+        ],
+      },
+      {
+        title: '九、管理員（只有管理員要測）',
+        items: [
+          { id: 'admin-enter', text: '從版本資訊進「管理員頁面」，輸入管理密碼', expect: '依群組分區、有顏色；用舊密碼會被擋下' },
+          { id: 'admin-delete', text: '刪除測試帳號', expect: '會要求輸入對方的帳號才能確認；刪完從清單消失' },
+        ],
+      },
+    ],
   },
 
   // ───────── 使用教學（可以列印給長輩）─────────

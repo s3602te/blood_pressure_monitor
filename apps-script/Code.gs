@@ -263,6 +263,7 @@ function parseRecord_(p) {
   if (systolic === null) return { error: '收縮壓請輸入 50 到 300 之間的數字' };
   if (diastolic === null) return { error: '舒張壓請輸入 30 到 200 之間的數字' };
   if (pulse === null) return { error: '脈搏請輸入 30 到 250 之間的數字' };
+  if (systolic <= diastolic) return { error: '收縮壓（高壓）要比舒張壓（低壓）大，請確認有沒有填反' };
   if (medication !== '有吃' && medication !== '沒吃') return { error: '請選擇吃藥狀況' };
   return { date: date, systolic: systolic, diastolic: diastolic, pulse: pulse, medication: medication, notes: notes };
 }

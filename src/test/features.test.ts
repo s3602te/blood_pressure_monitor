@@ -1,10 +1,13 @@
 import { describe, expect, it } from 'vitest'
 import { bpAdvice } from '../lib/advice'
+import { bpOrderWrong } from '../lib/validate'
+import { T } from '../text'
 import {
   aggregateByDate,
   agoText,
   buildReport,
   daysSince,
+  filterBySlot,
   monthSummary,
   reportToCsv,
   todayStatus,
@@ -194,5 +197,68 @@ describe('管理頁：多久沒用', () => {
     expect(agoText(new Date(2026, 9, 17, 1).getTime(), now)).toBe('今天')
     expect(agoText(new Date(2026, 9, 16, 23).getTime(), now)).toBe('昨天')
     expect(agoText(new Date(2026, 9, 10, 8).getTime(), now)).toBe('7 天前')
+  })
+})
+
+describe('填反檢查：收縮壓一定要比舒張壓大', () => {
+  it('收縮壓小於或等於舒張壓才算填錯', () => {
+    expect(bpOrderWrong('80', '120')).toBe(true)
+    expect(bpOrderWrong('100', '100')).toBe(true)
+    expect(bpOrderWrong('120', '80')).toBe(false)
+  })
+  it('只填一個、還在輸入中、空白或不是數字，都不算填錯（不要在輸入到一半時就罵人）', () => {
+    expect(bpOrderWrong('', '80')).toBe(false)
+    expect(bpOrderWrong('120', '')).toBe(false)
+    expect(bpOrderWrong('  ', '  ')).toBe(false)
+    expect(bpOrderWrong('abc', '80')).toBe(false)
+  })
+})
+
+describe('圖表：早晚一起／只看早上／只看晚上', () => {
+  const days = aggregateByDate([
+    rec('2026-10-10', 7, 140, 90),
+    rec('2026-10-10', 22, 120, 70),
+    rec('2026-10-11', 7, 130, 80),
+    rec('2026-10-12', 22, 110, 60),
+  ])
+  it('預設「早晚一起」就是原本的資料，一個字都不動', () => {
+    expect(filterBySlot(days, 'all')).toBe(days)
+  })
+  it('只看早上：只用早上的量測重算，晚上才有量的那天不畫', () => {
+    const m = filterBySlot(days, 'morning')
+    expect(m.map((d) => `${d.iso} ${d.sys}/${d.dia}`)).toEqual(['2026-10-10 140/90', '2026-10-11 130/80'])
+  })
+  it('只看晚上：只用晚上的量測重算', () => {
+    const e = filterBySlot(days, 'evening')
+    expect(e.map((d) => `${d.iso} ${d.sys}/${d.dia}`)).toEqual(['2026-10-10 120/70', '2026-10-12 110/60'])
+  })
+  it('一天有多次同時段：取那個時段的平均', () => {
+    const two = aggregateByDate([rec('2026-10-10', 7, 140, 90), rec('2026-10-10', 8, 130, 80), rec('2026-10-10', 22, 100, 60)])
+    expect(filterBySlot(two, 'morning')[0]).toMatchObject({ sys: 135, dia: 85 })
+  })
+  it('這個時段完全沒有資料就是空的（畫面會顯示一句說明）', () => {
+    expect(filterBySlot(aggregateByDate([rec('2026-10-10', 7, 130, 80)]), 'evening')).toEqual([])
+  })
+  it('報告帶回去除重複後的逐筆量測，畫給醫師看的圖用', () => {
+    const r = buildReport([rec('2026-10-10', 7, 130, 80), rec('2026-10-11', 22, 120, 70)], '2026-10-01', '2026-10-31')!
+    expect(r.readings).toHaveLength(2)
+  })
+})
+
+describe('真機驗收單內容', () => {
+  const items = T.checklist.sections.flatMap((s) => s.items)
+  it('每一項都有說明和預期看到的結果，編號不重複', () => {
+    expect(items.length).toBeGreaterThan(20)
+    expect(new Set(items.map((i) => i.id)).size).toBe(items.length)
+    for (const it of items) {
+      expect(it.text.length).toBeGreaterThan(3)
+      expect(it.expect.length).toBeGreaterThan(3)
+    }
+  })
+  it('複製出來的結果會列出手機和有問題的項目', () => {
+    const text = T.checklist.summary('iPhone 14', 3, items.length, ['三、記錄血壓：輸入 120 / 80'])
+    expect(text).toContain('iPhone 14')
+    expect(text).toContain('有問題 1 項')
+    expect(text).toContain('- 三、記錄血壓：輸入 120 / 80')
   })
 })

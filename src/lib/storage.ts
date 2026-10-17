@@ -170,6 +170,28 @@ export const reportPrefs = {
   },
 }
 
+/* ───────────── 真機驗收單的勾選結果（記在這支手機上） ───────────── */
+
+export interface ChecklistState {
+  device: string
+  marks: Record<string, 'ok' | 'bad'>
+}
+
+const CHECKLIST_KEY = 'bp_checklist'
+
+export const checklistStore = {
+  read(): ChecklistState {
+    const v = read<ChecklistState>(CHECKLIST_KEY)
+    return v && typeof v.device === 'string' && v.marks ? v : { device: '', marks: {} }
+  },
+  write(state: ChecklistState) {
+    write(CHECKLIST_KEY, state)
+  },
+  clear() {
+    remove(CHECKLIST_KEY)
+  },
+}
+
 /* ───────────── 「放大」的第一次提示 ───────────── */
 
 const HINT_KEY = 'bp_font_hint'

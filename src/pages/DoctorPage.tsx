@@ -1,7 +1,9 @@
 import { Fragment, useMemo, useState } from 'react'
+import { ChartPanel } from '../components/ChartPanel'
+import { ChartModeSwitch, chartCaption } from '../components/ChartModeSwitch'
 import { usePageTitle, useRecords, useSession } from '../hooks/hooks'
 import { reportPrefs } from '../lib/storage'
-import { addDays, buildReport, dateText, isHigh, rangeFor, reportToCsv, type RangeChoice, type ReportRow } from '../lib/records'
+import { addDays, aggregateByDate, buildReport, dateText, filterBySlot, isHigh, rangeFor, reportToCsv, type ChartMode, type RangeChoice, type ReportRow } from '../lib/records'
 import { T } from '../text'
 import { field, fieldLabel, hiMark, input, pageTitle, segInput, segLabel } from '../ui'
 
@@ -49,6 +51,7 @@ export default function DoctorPage() {
   const [from, setFrom] = useState(dateText(addDays(today, -29)))
   const [to, setTo] = useState(dateText(today))
   const [includeNotes, setIncludeNotes] = useState(() => reportPrefs.includeNotes())
+  const [chartMode, setChartMode] = useState<ChartMode>('all') // 圖表：早晚一起（預設）／只看早上／只看晚上
 
   const range = rangeFor(choice, today, { from, to })
   const report = useMemo(
@@ -58,6 +61,9 @@ export default function DoctorPage() {
   const loading = records.isLoading || (records.isFetching && !records.data)
   const s = report?.stats
   const name = session?.displayName || session?.username || ''
+
+  // 畫圖用：每天一個點（那一天所有量測的平均），可以只看早上或晚上
+  const chartDays = useMemo(() => filterBySlot(aggregateByDate(report?.readings ?? []), chartMode), [report, chartMode])
 
   // 同一天的幾列放在同一個區塊，列印換頁時不會把同一天拆開
   const groups = useMemo(() => {
@@ -160,6 +166,26 @@ export default function DoctorPage() {
             <Stat label={T.doctor.stats.took} value={T.doctor.stats.daysValue(s.tookDays)} sub={T.doctor.stats.tookSub(s.dayCount)} />
             <Stat label={T.doctor.stats.peak} value={`${s.peak.sys}/${s.peak.dia}`} sub={s.peak.date.slice(5).replace('-', '/')} />
           </div>
+
+          <section aria-label={T.doctor.chartTitle} className="mt-5 rounded-card border border-line bg-card p-4 print:break-inside-avoid">
+            <h3 className="text-lg font-black">{T.doctor.chartTitle}</h3>
+            <div className="print:hidden">
+              <ChartModeSwitch value={chartMode} onChange={setChartMode} />
+            </div>
+            <div className="mt-3">
+              <ChartPanel
+                days={chartDays}
+                compact={chartDays.length > 10}
+                emptyText={chartMode === 'morning' ? T.chart.emptyMorning : T.chart.emptyEvening}
+              />
+            </div>
+            <p className="mt-2 text-sm text-muted">{chartCaption(chartMode)}</p>
+            <ul className="mt-1 list-disc pl-[22px] text-sm text-muted">
+              {T.history.chartNotes.slice(0, 3).map((line) => (
+                <li key={line}>{line}</li>
+              ))}
+            </ul>
+          </section>
 
           <table className="mt-[18px] w-full border-collapse bg-card tabular-nums">
             <thead>
