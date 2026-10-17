@@ -111,6 +111,7 @@ export const T = {
     sentDetail: '先前暫存的血壓已經上傳完成。',
     stillOfflineTitle: '還是連不上網路',
     stillOfflineDetail: '資料還在這支手機裡沒有遺失，有網路時會再自動補送。',
+    helpLink: '看使用教學（怎麼加到手機桌面）',
   },
 
   // 儲存後依數字給的提醒（規則在 src/lib/advice.ts）
@@ -166,6 +167,12 @@ export const T = {
     newer: '較新',
     pageSelectAria: '選擇頁數',
     latest: '最新　',
+    month: {
+      title: '最近 1 個月',
+      summary: (from: string, to: string, bp: string) => `${from}～${to} 平均 ${bp}`,
+      days: (count: number, high: number) => `有記錄 ${count} 天，其中 ${high} 天偏高`,
+      note: '每個點是一天的平均。虛線是參考線 135（收縮壓）、85（舒張壓）。',
+    },
   },
 
   // 「和上週比較」卡片
@@ -225,6 +232,8 @@ export const T = {
     ranges: { '7': '近 7 天', '30': '近 30 天', '90': '近 90 天', custom: '自訂' },
     from: '從',
     to: '到',
+    includeNotes: '報告裡包含「今天的狀況」備註',
+    includeNotesHint: '備註如果有私人內容，可以取消勾選，列印和 CSV 都不會出現備註。',
     emptyTitle: '這段時間沒有紀錄',
     emptyText: '換一個時間範圍試試看。',
     reportTitle: '血壓紀錄',
@@ -266,7 +275,8 @@ export const T = {
     csvHint: '用 Excel 開啟',
     csvFilename: (name: string, from: string, to: string) => `血壓紀錄_${name}_${from}_${to}.csv`,
     // CSV 檔案的欄位標題
-    csvHeader: ['日期', '星期', '時段', '時間', '收縮壓', '舒張壓', '脈搏', '吃藥', '今日狀況'],
+    csvHeader: ['日期', '星期', '時段', '時間', '收縮壓', '舒張壓', '脈搏', '吃藥'],
+    csvNotesHeader: '今日狀況',
   },
 
   // ───────── 登入／建立帳號 ─────────
@@ -278,6 +288,8 @@ export const T = {
     modeLogin: '登入',
     modeRegister: '建立帳號',
     username: '帳號',
+    usernameHintRegister: '（10 碼手機號碼，0 開頭）',
+    phoneInvalid: '帳號請輸入 10 碼手機號碼（0 開頭，例如 0912345678）',
     usernamePlaceholder: '請輸入手機號碼，例如 0912345678',
     displayName: '顯示名稱',
     displayNameHint: '（選填，請填自己的姓名）',
@@ -294,6 +306,75 @@ export const T = {
     submitRegister: '建立帳號',
     busyLogin: '登入中…',
     busyRegister: '建立中…',
+    // 沒有「自動寄信」或「自動通知」功能，所以只寫要找誰，字小一點
+    forgot: '忘記密碼？請直接聯絡序亞，由他幫你重設。（網站不會自動寄信，也不會自動通知。）',
+    helpLink: '第一次使用？看使用教學',
+  },
+
+  // ───────── 使用教學（可以列印給長輩）─────────
+  help: {
+    pageTitle: '使用教學',
+    heading: '血壓記錄　使用教學',
+    intro: '照著下面 4 個步驟做。第一次設定好之後，每天只要打開，就能記錄血壓。',
+    siteLabel: '網址（用手機的瀏覽器打開）',
+    print: '列印這一頁',
+    backLogin: '← 回登入頁',
+    backApp: '← 回記錄頁',
+    contact: '有問題，請直接聯絡序亞。',
+    step: (n: number) => `第 ${n} 步`,
+    s1: {
+      title: '把網站放到手機桌面（只要做一次）',
+      iphone: 'iPhone（用 Safari）',
+      iphoneSteps: [
+        '用 Safari 打開上面的網址',
+        '點最下面中間的「分享」按鈕（方框上面有向上的箭頭）',
+        '往上滑，找到並點「加入主畫面」',
+        '點右上角的「新增」',
+      ],
+      android: 'Android（用 Chrome）',
+      androidSteps: [
+        '用 Chrome 打開上面的網址',
+        '點右上角的「⋮」（三個點）',
+        '點「加到主畫面」或「安裝應用程式」',
+        '按「新增」或「安裝」',
+      ],
+      done: '做完之後，手機桌面會多一個「血壓記錄」的圖示，以後點它就可以。',
+      mockShare: '點「分享」',
+      mockAdd: '點「加入主畫面」',
+      mockHome: '桌面出現圖示',
+      mockMenu: '點「⋮」，再點「加到主畫面」',
+    },
+    s2: {
+      title: '建立帳號（只要做一次）',
+      steps: [
+        '點「建立帳號」',
+        '帳號：填自己的手機號碼（10 碼，0 開頭）',
+        '顯示名稱：填自己的姓名',
+        '密碼：用生日 4 碼（例如 3 月 4 日填 0304）',
+        '邀請碼：請問序亞',
+        '按「建立帳號」。之後這支手機會一直保持登入，不用再輸入。',
+      ],
+    },
+    s3: {
+      title: '每天量完血壓，來記錄',
+      steps: [
+        '點手機桌面上的「血壓記錄」',
+        '輸入大大的「收縮壓」（高壓）、「舒張壓」（低壓）和「脈搏」',
+        '選今天有沒有吃藥',
+        '按「儲存紀錄」，看到「已儲存」就完成了',
+      ],
+      mockBp: '收縮壓 / 舒張壓',
+      mockSave: '儲存紀錄',
+    },
+    s4: {
+      title: '常用的小功能',
+      items: [
+        ['字太小？', '按右上角的「放大」，字就會變大；再按一次「縮小」就會變回來。'],
+        ['填錯了？', '到「歷史紀錄」，按日期下面的「修改」，可以改數字，也可以刪除。'],
+        ['要給醫師看？', '到「給醫師看」，選一段時間，可以列印，也可以存成檔案。'],
+        ['沒有網路？', '照常按「儲存紀錄」，資料會先存在手機，有網路時自動補送，不用重複輸入。'],
+      ],
+    },
   },
 
   // ───────── 管理員頁 ─────────
@@ -320,6 +401,16 @@ export const T = {
     colLastRecord: '最後記錄',
     count: (n: number) => `共 ${n} 筆`,
     statusNote: '橘色＝超過 3 天，紅色＝超過 7 天或從來沒有。最後使用從這次更新後才開始記錄。',
+    delete: '刪除帳號',
+    deleteTitle: (who: string) => `刪除帳號：${who}`,
+    deleteExplain: '刪除後，對方不能再登入，所有裝置也會立刻登出。',
+    deleteKeep: '紀錄會先保留（資料分頁改名成「已刪除＿…」），需要時可以找回來。',
+    deleteData: '同時刪除他的所有血壓紀錄（無法復原，只能從備份找）',
+    deleteTypeLabel: (username: string) => `要確認的話，請輸入他的帳號 ${username}`,
+    deleteConfirm: '確定刪除',
+    deleting: '刪除中…',
+    deleted: (who: string) => `已刪除帳號 ${who}。`,
+    deleteFailed: '刪除失敗，請再試一次',
     ago: { never: '從來沒有', today: '今天', yesterday: '昨天', days: (n: number) => `${n} 天前` },
   },
 }

@@ -147,6 +147,29 @@ export const pendingQueue = {
   },
 }
 
+/* ───────────── 給醫師看：報告要不要包含「今天的狀況」備註 ───────────── */
+
+const NOTES_KEY = 'bp_report_notes'
+
+export const reportPrefs = {
+  /** 預設包含；取消勾選後，下次進來也記得 */
+  includeNotes(): boolean {
+    try {
+      return localStorage.getItem(NOTES_KEY) !== '0'
+    } catch {
+      return true
+    }
+  },
+  setIncludeNotes(value: boolean) {
+    try {
+      if (value) localStorage.removeItem(NOTES_KEY)
+      else localStorage.setItem(NOTES_KEY, '0')
+    } catch {
+      /* 略過 */
+    }
+  },
+}
+
 /* ───────────── 「放大」的第一次提示 ───────────── */
 
 const HINT_KEY = 'bp_font_hint'

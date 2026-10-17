@@ -1,5 +1,6 @@
 import { useCallback, useEffect, useRef, useState, type FormEvent } from 'react'
 import { useQueryClient } from '@tanstack/react-query'
+import { Link } from 'react-router-dom'
 import { addRecord, handleAuthError } from '../lib/api'
 import { flushPending } from '../lib/pending'
 import { pendingQueue } from '../lib/storage'
@@ -307,6 +308,12 @@ export default function RecordPage() {
           {busy ? T.common.saving : T.record.submit}
         </button>
       </form>
+
+      <p className="mt-6 text-center text-sm">
+        <Link to="/help" className="font-bold text-teal-deep underline underline-offset-[3px]">
+          {T.record.helpLink}
+        </Link>
+      </p>
 
       {result && <ResultDialog result={result} onClose={closeResult} />}
     </>

@@ -5,6 +5,7 @@ import {
   agoText,
   buildReport,
   daysSince,
+  monthSummary,
   reportToCsv,
   todayStatus,
   weekTrend,
@@ -147,6 +148,41 @@ describe('給醫師看：逐筆清單、CSV', () => {
     expect(lines).toHaveLength(5)
     expect(lines[1].startsWith('2026-10-16,週五,晚上,22:10,137,88,70,有吃')).toBe(true)
     expect(lines[2]).toContain('"\'=1+1, ""危險"""') // 以 = 開頭加單引號，逗號與引號用雙引號包起來
+  })
+})
+
+describe('給醫師看：備註可以不包含', () => {
+  const report = buildReport([rec('2026-10-15', 7, 130, 80, { notes: '很私人的備註' })], '2026-10-01', '2026-10-31')!
+  it('預設包含「今日狀況」欄', () => {
+    const csv = reportToCsv(report)
+    expect(csv).toContain('今日狀況')
+    expect(csv).toContain('很私人的備註')
+  })
+  it('不包含時整欄都不放，備註內容不會外流', () => {
+    const csv = reportToCsv(report, false)
+    expect(csv).not.toContain('今日狀況')
+    expect(csv).not.toContain('很私人的備註')
+    expect(csv.trim().split('\r\n')[0].split(',')).toHaveLength(8)
+  })
+})
+
+describe('歷史頁：最近 1 個月', () => {
+  const today = new Date(2026, 9, 30)
+  const days = aggregateByDate([
+    rec('2026-10-02', 7, 130, 80),
+    rec('2026-10-10', 7, 140, 90),
+    rec('2026-10-20', 7, 120, 70),
+    rec('2026-09-01', 7, 150, 95), // 超過 30 天，不算
+  ])
+  it('只算最近 30 個日曆天，並算出平均與偏高天數', () => {
+    const m = monthSummary(days, today)!
+    expect(m.count).toBe(3)
+    expect(m.avgBp).toBe('130/80')
+    expect(m.highDays).toBe(1)
+    expect([m.from, m.to]).toEqual(['2026-10-01', '2026-10-30'])
+  })
+  it('有記錄的天數少於 3 天就不顯示', () => {
+    expect(monthSummary(days.slice(0, 2), today)).toBeNull()
   })
 })
 

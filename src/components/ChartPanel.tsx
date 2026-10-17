@@ -60,8 +60,9 @@ const refLines: Plugin<'line'> = {
  * 血壓走勢圖：藍線＝收縮壓（高壓），綠線＝舒張壓（低壓）。
  * 點的顏色永遠和線一樣；高於參考值的點會變大，並加上橘色外圈。
  * 點一下可以看脈搏和吃藥。
+ * compact＝最近 1 個月用：點比較小、日期標籤自動稀疏（不然 30 個日期會擠在一起）。
  */
-export function ChartPanel({ days }: { days: DayAgg[] }) {
+export function ChartPanel({ days, compact = false }: { days: DayAgg[]; compact?: boolean }) {
   const k = useLargeFont() ? 1.25 : 1 // 放大字體時圖表文字一起放大
 
   const line = (label: string, key: 'sys' | 'dia', color: string, limit: number) => {
@@ -71,12 +72,12 @@ export function ChartPanel({ days }: { days: DayAgg[] }) {
       data: days.map((d) => d[key]),
       borderColor: color,
       backgroundColor: color,
-      borderWidth: 3,
+      borderWidth: compact ? 2 : 3,
       tension: 0.25,
       pointBackgroundColor: color,
       pointBorderColor: (c: { raw: unknown }) => (isHigh(c) ? HIGH_COLOR : color),
-      pointBorderWidth: (c: { raw: unknown }) => (isHigh(c) ? 4 : 1),
-      pointRadius: (c: { raw: unknown }) => (isHigh(c) ? 7 : 4),
+      pointBorderWidth: (c: { raw: unknown }) => (isHigh(c) ? (compact ? 2 : 4) : 1),
+      pointRadius: (c: { raw: unknown }) => (isHigh(c) ? (compact ? 4 : 7) : compact ? 2 : 4),
       pointHoverRadius: 9,
     }
   }
@@ -84,7 +85,7 @@ export function ChartPanel({ days }: { days: DayAgg[] }) {
   return (
     <div className="relative h-[300px]">
       <Line
-        aria-label={T.history.chartAria}
+        aria-label={compact ? T.history.month.title : T.history.chartAria}
         role="img"
         plugins={[refLines]}
         data={{
@@ -100,7 +101,11 @@ export function ChartPanel({ days }: { days: DayAgg[] }) {
           font: { size: 11 * k },
           interaction: { mode: 'index', intersect: false },
           scales: {
-            x: { ticks: { autoSkip: false, font: { size: 13 * k } } },
+            x: {
+              ticks: compact
+                ? { autoSkip: true, maxTicksLimit: 8, maxRotation: 0, font: { size: 13 * k } }
+                : { autoSkip: false, font: { size: 13 * k } },
+            },
             y: { suggestedMin: 50, suggestedMax: 160, ticks: { font: { size: 13 * k } } },
           },
           plugins: {

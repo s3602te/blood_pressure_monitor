@@ -128,5 +128,8 @@ export interface AdminAccount {
 export const adminList = (adminCode: string) =>
   callApi<{ accounts: AdminAccount[] }>('adminList', { adminCode })
 
+export const adminDelete = (adminCode: string, username: string, deleteData: boolean) =>
+  callApi('adminDelete', { adminCode, username, deleteData: String(deleteData) })
+
 export const adminReset = (adminCode: string, username: string, newPassword: string) =>
   callApi('adminReset', { adminCode, username, newPassword })

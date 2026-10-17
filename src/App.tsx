@@ -3,6 +3,7 @@ import { HashRouter, Navigate, Route, Routes } from 'react-router-dom'
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query'
 import { Layout } from './components/Layout'
 import AdminPage from './pages/AdminPage'
+import HelpPage from './pages/HelpPage'
 import LoginPage from './pages/LoginPage'
 import RecordPage from './pages/RecordPage'
 
@@ -22,6 +23,7 @@ export default function App() {
         <Routes>
           <Route path="/login" element={<LoginPage />} />
           <Route path="/admin" element={<AdminPage />} />
+          <Route path="/help" element={<HelpPage />} />
           <Route element={<Layout />}>
             <Route index element={<RecordPage />} />
             <Route path="history" element={<HistoryPage />} />

@@ -1,5 +1,6 @@
 import { Fragment, useMemo, useState } from 'react'
 import { usePageTitle, useRecords, useSession } from '../hooks/hooks'
+import { reportPrefs } from '../lib/storage'
 import { addDays, buildReport, dateText, isHigh, rangeFor, reportToCsv, type RangeChoice, type ReportRow } from '../lib/records'
 import { T } from '../text'
 import { field, fieldLabel, hiMark, input, pageTitle, segInput, segLabel } from '../ui'
@@ -47,6 +48,7 @@ export default function DoctorPage() {
   const [choice, setChoice] = useState<RangeChoice>('7')
   const [from, setFrom] = useState(dateText(addDays(today, -29)))
   const [to, setTo] = useState(dateText(today))
+  const [includeNotes, setIncludeNotes] = useState(() => reportPrefs.includeNotes())
 
   const range = rangeFor(choice, today, { from, to })
   const report = useMemo(
@@ -107,6 +109,20 @@ export default function DoctorPage() {
             </div>
           </div>
         )}
+
+        <label className="mt-5 flex cursor-pointer items-center gap-3 font-bold">
+          <input
+            type="checkbox"
+            className="size-6 shrink-0 accent-teal-deep"
+            checked={includeNotes}
+            onChange={(e) => {
+              setIncludeNotes(e.target.checked)
+              reportPrefs.setIncludeNotes(e.target.checked)
+            }}
+          />
+          <span>{T.doctor.includeNotes}</span>
+        </label>
+        <p className="mt-1 text-sm text-muted">{T.doctor.includeNotesHint}</p>
 
         {loading && <p className="mt-1 text-muted">{T.common.loading}</p>}
         {records.isError && !records.data && (
@@ -180,7 +196,7 @@ export default function DoctorPage() {
                       <td className={cell}>{Number.isFinite(rec.pulse) ? rec.pulse : T.common.none}</td>
                       <td className={`${cell} whitespace-nowrap`}>{rec.med}</td>
                     </tr>
-                    {rec.notes && (
+                    {includeNotes && rec.notes && (
                       <tr>
                         <td />
                         <td colSpan={4} className="pb-2 text-[0.9375rem] break-words text-muted print:pb-1">
@@ -210,7 +226,7 @@ export default function DoctorPage() {
                   key: 'csv',
                   title: T.doctor.csv,
                   hint: T.doctor.csvHint,
-                  run: () => downloadCsv(reportToCsv(report), T.doctor.csvFilename(name, range.from, range.to)),
+                  run: () => downloadCsv(reportToCsv(report, includeNotes), T.doctor.csvFilename(name, range.from, range.to)),
                 },
               ].map((b) => (
                 <button

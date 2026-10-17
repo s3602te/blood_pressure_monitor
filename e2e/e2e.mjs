@@ -31,6 +31,11 @@ addRow(daysAgo(1, 22, 11), 136, 83, 72, '有吃') // 一筆 1 秒內重複的資
 rows[rows.length - 1].at += 1000
 
 let online = true
+const adminAccounts = [
+  { username: 'mom', displayName: '媽媽', lastSeen: Date.now(), lastRecord: daysAgo(5, 8).getTime(), count: 12 },
+  { username: 'dad', displayName: 'dad', lastSeen: 0, lastRecord: 0, count: 0 },
+]
+const deletedCalls = []
 const calls = []
 const ok = (o = {}) => ({ ok: true, ...o })
 function handle(p) {
@@ -60,7 +65,15 @@ function handle(p) {
       rows.forEach((x, k) => (x.row = k + 2))
       return ok()
     }
-    case 'adminList': return p.adminCode === 'boss' ? ok({ accounts: [{ username: 'mom', displayName: '媽媽', lastSeen: Date.now(), lastRecord: daysAgo(5, 8).getTime(), count: 12 }, { username: 'dad', displayName: 'dad', lastSeen: 0, lastRecord: 0, count: 0 }] }) : { ok: false, error: '管理密碼不正確' }
+    case 'adminList': return p.adminCode === 'boss' ? ok({ accounts: adminAccounts.map((a) => ({ ...a })) }) : { ok: false, error: '管理密碼不正確' }
+    case 'adminDelete': {
+      if (p.adminCode !== 'boss') return { ok: false, error: '管理密碼不正確' }
+      const i = adminAccounts.findIndex((a) => a.username === p.username)
+      if (i < 0) return { ok: false, error: '找不到這個帳號' }
+      adminAccounts.splice(i, 1)
+      deletedCalls.push({ username: p.username, deleteData: p.deleteData })
+      return ok()
+    }
     case 'adminReset': return ok()
     default: return { ok: false, error: '不支援的操作' }
   }
@@ -108,6 +121,13 @@ try {
   await page.waitForURL(/#\/login/)
   check(await page.getByRole('button', { name: '登入', exact: true }).isVisible(), '沒登入會到登入頁')
   check(((await page.locator('#username').getAttribute('placeholder')) || '').includes('手機號碼'), '帳號欄位提示填手機號碼')
+  check(await page.getByText(/忘記密碼？請直接聯絡序亞/).isVisible() && await page.getByText(/不會自動寄信/).isVisible(), '登入頁有小字：忘記密碼請聯絡序亞，並說明不會自動寄信')
+  await page.getByRole('link', { name: /看使用教學/ }).click()
+  await page.getByRole('heading', { name: /使用教學/ }).waitFor()
+  check(await page.getByText('加入主畫面').first().isVisible() && await page.getByText('收縮壓 / 舒張壓').isVisible(), '使用教學頁：有加到桌面與記錄血壓的圖解')
+  await shot('01b-help')
+  await page.getByRole('link', { name: /回登入頁/ }).click()
+  await page.getByRole('button', { name: '登入', exact: true }).waitFor()
   await shot('01-login')
 
   // 2. 登入錯誤、再登入
@@ -227,10 +247,14 @@ try {
   // 6. 歷史頁
   await page.getByRole('link', { name: '歷史紀錄' }).click()
   await page.getByRole('heading', { name: '歷史紀錄' }).waitFor()
-  await page.locator('canvas').waitFor()
+  await page.locator('canvas').first().waitFor()
   await sleep(600)
   check((await page.locator('tbody tr').count()) === 7, '歷史頁顯示 7 天')
   check(await page.getByText('和上週比較', { exact: true }).isVisible(), '歷史頁有「和上週比較」')
+  check(await page.getByRole('heading', { name: '最近 1 個月' }).isVisible() && (await page.locator('canvas').count()) === 2, '歷史頁有「最近 1 個月」總覽與圖表')
+  await page.getByRole('heading', { name: '最近 1 個月' }).scrollIntoViewIfNeeded()
+  await sleep(300)
+  await shot('07b-month')
   check(await page.getByText(/比上週低|比上週高|和上週差不多|有升有降/).first().isVisible(), '「和上週比較」有給出一句結論')
   await shot('07-history')
   const rowCount = rows.length
@@ -271,6 +295,13 @@ try {
   const mmdd = (() => { const d = new Date(); return String(d.getMonth() + 1).padStart(2, '0') + '/' + String(d.getDate()).padStart(2, '0') })()
   check((await page.locator('tbody').first().locator('td').first().innerText()).includes(mmdd), '給醫師看：最新的（今天）在最上面，和歷史頁順序一致')
   check((await page.locator('tbody').count()) >= 5, '同一天的量測放在同一個區塊')
+  check(await page.getByText('狀況：晚睡').isVisible(), '報告預設包含備註（已自動勾選）')
+  await page.getByLabel(/報告裡包含/).uncheck()
+  check(!(await page.getByText('狀況：晚睡').count()), '取消勾選後，報告裡不再出現備註')
+  const [dl0] = await Promise.all([page.waitForEvent('download'), page.getByRole('button', { name: /CSV/ }).click()])
+  const csv0 = (await import('node:fs')).readFileSync(await dl0.path(), 'utf8')
+  check(!csv0.includes('今日狀況') && !csv0.includes('晚睡'), '取消勾選後，CSV 也不含備註')
+  await page.getByLabel(/報告裡包含/).check()
   const [download] = await Promise.all([page.waitForEvent('download'), page.getByRole('button', { name: /CSV/ }).click()])
   const csv = (await import('node:fs')).readFileSync(await download.path(), 'utf8')
   check(csv.startsWith('\uFEFF日期,星期,時段') && csv.trim().split('\r\n').length >= 6, 'CSV 下載成功（有標題、每次量測一列）')
@@ -311,6 +342,17 @@ try {
   check(await page.getByText('向序亞詢問').isVisible(), '註冊頁邀請碼文字')
   check(((await page.locator('#displayName').getAttribute('placeholder')) || '').includes('王小美') && await page.getByText('請填自己的姓名').isVisible(), '顯示名稱改成提示填自己的姓名')
   check(((await page.locator('#password').getAttribute('placeholder')) || '').includes('0304') && await page.getByText(/用生日 4 碼/).isVisible(), '密碼提示用生日 4 碼（例如 0304）')
+  check(!(await page.getByText(/忘記密碼？請直接聯絡序亞/).count()), '建立帳號畫面不顯示忘記密碼的說明')
+  await page.locator('#username').fill('abc')
+  await page.locator('#password').fill('0304')
+  await page.locator('#inviteCode').fill('abc')
+  await page.locator('form button[type="submit"]').click()
+  await page.getByText(/帳號請輸入 10 碼手機號碼/).waitFor()
+  check(true, '建立帳號：不是 10 碼手機號碼會被擋下，並說明怎麼填')
+  await page.locator('#username').fill('09123')
+  await page.locator('form button[type="submit"]').click()
+  check(await page.getByText(/帳號請輸入 10 碼手機號碼/).isVisible(), '建立帳號：位數不對也會被擋')
+  check((await page.locator('#username').getAttribute('inputmode')) === 'numeric', '建立帳號時帳號欄位會跳出數字鍵盤')
   await shot('14-register')
   await page.goto(BASE + 'admin.html')
   await page.waitForURL(/#\/admin/)
@@ -324,6 +366,17 @@ try {
   await page.getByRole('button', { name: '重設密碼' }).click()
   await page.getByText(/新密碼是「5678」/).waitFor()
   check(true, '管理頁可重設密碼')
+  await page.locator('section[aria-label="帳號使用狀況"] tbody tr').first().getByRole('button', { name: '刪除帳號' }).click()
+  await page.getByRole('dialog').waitFor()
+  await shot('15a-delete-dialog')
+  const sureBtn = page.getByRole('button', { name: '確定刪除' })
+  check(await sureBtn.isDisabled(), '刪除帳號：沒輸入帳號之前「確定刪除」按不下去')
+  await page.getByLabel(/要確認的話/).fill('dad')
+  check(await sureBtn.isEnabled(), '輸入對方帳號後才能按「確定刪除」')
+  await sureBtn.click()
+  await page.getByText(/已刪除帳號/).waitFor()
+  check(deletedCalls.length === 1 && deletedCalls[0].username === 'dad' && deletedCalls[0].deleteData === 'false', '刪除帳號：預設保留紀錄（不連資料一起刪）')
+  check(!(await page.locator('section[aria-label="帳號使用狀況"]').getByText('dad').count()), '刪除後，帳號從清單消失')
   await shot('15-admin')
 
   check(errors.length === 0, '沒有任何 JS 錯誤' + (errors.length ? '：' + errors.join(' | ') : ''))

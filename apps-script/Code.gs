@@ -34,7 +34,7 @@ const SITE_URL = 'https://s3602te.github.io/blood_pressure_monitor/';
 /* ───────────── 入口 ───────────── */
 
 // 會寫入資料的動作才需要搶鎖；單純讀取不用排隊，同時開多個頁面也不會互相等
-const WRITE_ACTIONS = ['register', 'login', 'add', 'update', 'delete', 'adminList', 'adminReset'];
+const WRITE_ACTIONS = ['register', 'login', 'add', 'update', 'delete', 'adminList', 'adminReset', 'adminDelete'];
 
 function doPost(e) {
   const p = (e && e.parameter) || {};
@@ -57,6 +57,7 @@ function doPost(e) {
       case 'list':     return json_(listRecords_(p));
       case 'adminList':  return json_(adminList_(p));
       case 'adminReset': return json_(adminReset_(p));
+      case 'adminDelete': return json_(adminDelete_(p));
       default:         return json_(fail_('不支援的操作'));
     }
   } catch (err) {
@@ -74,6 +75,11 @@ function doGet() {
 
 /* ───────────── 帳號 ───────────── */
 
+// 帳號就是手機號碼：把使用者不小心輸入的空白、橫線去掉（0912-345-678 → 0912345678）
+function normalizeUsername_(text) {
+  return String(text || '').replace(/[\s\-－—]/g, '');
+}
+
 function register_(p) {
   const code = prop_('REGISTER_CODE');
   if (!code) return fail_('尚未開放註冊，請管理員先設定邀請碼');
@@ -86,10 +92,10 @@ function register_(p) {
     return fail_('邀請碼不正確');
   }
 
-  const username = String(p.username || '').trim();
+  const username = normalizeUsername_(p.username);
   const password = String(p.password || '');
-  if (!/^[A-Za-z0-9_一-龥]{2,20}$/.test(username)) {
-    return fail_('帳號需為 2 到 20 個中文、英文、數字或底線');
+  if (!/^0\d{9}$/.test(username)) {
+    return fail_('帳號請輸入 10 碼手機號碼（0 開頭，例如 0912345678）');
   }
   if (password.length < MIN_PASSWORD || password.length > 64) {
     return fail_('密碼需為 ' + MIN_PASSWORD + ' 到 64 個字元');
@@ -126,7 +132,7 @@ function register_(p) {
 }
 
 function login_(p) {
-  const username = String(p.username || '').trim();
+  const username = normalizeUsername_(p.username);
   const password = String(p.password || '');
   const cache = CacheService.getScriptCache();
   const failKey = 'fail_' + username.toLowerCase().slice(0, 40);
@@ -544,6 +550,13 @@ function setPassword_(username, newPassword) {
   const salt = sha256_(Utilities.getUuid()).slice(0, 16);
   sheet.getRange(row, 4, 1, 2).setValues([[salt, hashPassword_(salt, newPassword)]]);
 
+  revokeTokens_(key);
+  return true;
+}
+
+// 讓某個帳號在所有裝置登出，並解除輸錯密碼造成的暫停
+function revokeTokens_(usernameKey) {
+  const key = String(usernameKey).toLowerCase();
   const props = PropertiesService.getScriptProperties();
   const all = props.getProperties();
   Object.keys(all).forEach(function (k) {
@@ -552,7 +565,33 @@ function setPassword_(username, newPassword) {
     }
   });
   CacheService.getScriptCache().remove('fail_' + key.slice(0, 40));
-  return true;
+}
+
+// 刪除帳號（管理頁使用）。帳號列一刪，對方就不能再登入；所有裝置的登入也立刻失效。
+// deleteData = 'true'：連同他的資料分頁一起刪掉；否則資料分頁留著，只是改名成「已刪除_…」（需要時可以再找回來）。
+function adminDelete_(p) {
+  const denied = adminCheck_(p);
+  if (denied) return denied;
+  const acc = findAccount_(String(p.username || ''));
+  if (!acc) return fail_('找不到這個帳號');
+
+  const ss = spreadsheet_();
+  const dataSheet = ss.getSheetByName(acc.sheetName);
+  accountSheet_().deleteRow(acc.row);
+  revokeTokens_(acc.username);
+
+  if (dataSheet) {
+    if (String(p.deleteData) === 'true') {
+      ss.deleteSheet(dataSheet);
+    } else {
+      const stamp = Utilities.formatDate(new Date(), sheetTz_(), 'yyyyMMdd');
+      const base = ('已刪除_' + acc.sheetName + '_' + stamp).slice(0, 90);
+      let name = base;
+      for (let n = 2; ss.getSheetByName(name); n++) name = base + '_' + n;
+      dataSheet.setName(name);
+    }
+  }
+  return { ok: true };
 }
 
 // 備用：不想用管理頁面時，改好下面兩個值，在編輯器選 resetPassword 按「執行」（不需要重新部署）。

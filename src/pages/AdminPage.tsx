@@ -1,10 +1,11 @@
 import { useState, type FormEvent } from 'react'
 import { Link } from 'react-router-dom'
-import { adminList, adminReset, errorOf, type AdminAccount } from '../lib/api'
+import { adminDelete, adminList, adminReset, errorOf, type AdminAccount } from '../lib/api'
+import { Modal } from '../components/Modal'
 import { agoText, daysSince } from '../lib/records'
 import { usePageTitle } from '../hooks/hooks'
 import { T } from '../text'
-import { btnPrimary, field, fieldHint, fieldLabel, input, pageTitle, statusBase, statusKind, wrap } from '../ui'
+import { btnDanger, btnPrimary, btnQuiet, field, fieldHint, fieldLabel, input, linkBtn, pageTitle, statusBase, statusKind, wrap } from '../ui'
 
 /** 管理頁：幫忘記密碼的家人換新密碼。管理密碼只留在這個頁面的記憶體裡，關掉頁面就消失，不會存到瀏覽器。 */
 export default function AdminPage() {
@@ -14,6 +15,7 @@ export default function AdminPage() {
   const [selected, setSelected] = useState('')
   const [newPassword, setNewPassword] = useState('')
   const [busy, setBusy] = useState(false)
+  const [deleting, setDeleting] = useState<AdminAccount | null>(null)
   const [status, setStatus] = useState<{ text: string; kind: keyof typeof statusKind } | null>(null)
 
   const unlock = async (e: FormEvent) => {
@@ -62,7 +64,7 @@ export default function AdminPage() {
         <p className="mt-1 text-muted">{T.admin.intro}</p>
       </div>
 
-      {accounts && accounts.length > 0 && <AccountStatus accounts={accounts} label={label} />}
+      {accounts && accounts.length > 0 && <AccountStatus accounts={accounts} label={label} onDelete={setDeleting} />}
 
       {!accounts ? (
         <form onSubmit={unlock}>
@@ -126,12 +128,38 @@ export default function AdminPage() {
         {status?.text}
       </p>
       <p className="mt-[18px] text-[0.9375rem] text-muted">{T.admin.footer}</p>
+
+      {deleting && (
+        <DeleteDialog
+          account={deleting}
+          who={label(deleting)}
+          adminCode={adminCode}
+          onClose={() => setDeleting(null)}
+          onDeleted={async (who) => {
+            setDeleting(null)
+            const result = await adminList(adminCode)
+            if (result.ok) {
+              setAccounts(result.accounts)
+              setSelected(result.accounts[0]?.username ?? '')
+            }
+            setStatus({ text: T.admin.deleted(who), kind: 'ok' })
+          }}
+        />
+      )}
     </main>
   )
 }
 
 /** 誰多久沒用了：最後使用＝最近一次打開網站，最後記錄＝最近一次存血壓。很久沒記錄的用橘色、紅色標出來。 */
-function AccountStatus({ accounts, label }: { accounts: AdminAccount[]; label: (a: AdminAccount) => string }) {
+function AccountStatus({
+  accounts,
+  label,
+  onDelete,
+}: {
+  accounts: AdminAccount[]
+  label: (a: AdminAccount) => string
+  onDelete: (a: AdminAccount) => void
+}) {
   const now = new Date()
   // 最久沒記錄的排最前面
   const sorted = [...accounts].sort((a, b) => a.lastRecord - b.lastRecord)
@@ -155,7 +183,16 @@ function AccountStatus({ accounts, label }: { accounts: AdminAccount[]; label: (
         <tbody>
           {sorted.map((a) => (
             <tr key={a.username}>
-              <td className="border-b border-line py-2.5 pr-2 align-top break-all">{label(a)}</td>
+              <td className="border-b border-line py-2.5 pr-2 align-top break-all">
+                {label(a)}
+                <button
+                  type="button"
+                  className={`${linkBtn} block py-1! text-[0.9375rem]! text-danger!`}
+                  onClick={() => onDelete(a)}
+                >
+                  {T.admin.delete}
+                </button>
+              </td>
               <td className={`border-b border-line py-2.5 pr-2 align-top whitespace-nowrap ${tone(a.lastSeen)}`}>
                 {agoText(a.lastSeen, now)}
               </td>
@@ -169,5 +206,92 @@ function AccountStatus({ accounts, label }: { accounts: AdminAccount[]; label: (
       </table>
       <p className="mt-2 text-sm text-muted">{T.admin.statusNote}</p>
     </section>
+  )
+}
+
+/** 刪除帳號的確認視窗：要輸入對方的帳號才能按「確定刪除」，避免誤刪。 */
+function DeleteDialog({
+  account,
+  who,
+  adminCode,
+  onClose,
+  onDeleted,
+}: {
+  account: AdminAccount
+  who: string
+  adminCode: string
+  onClose: () => void
+  onDeleted: (who: string) => Promise<void>
+}) {
+  const [deleteData, setDeleteData] = useState(false)
+  const [typed, setTyped] = useState('')
+  const [busy, setBusy] = useState(false)
+  const [error, setError] = useState('')
+
+  const confirm = async () => {
+    setBusy(true)
+    setError('')
+    const result = await adminDelete(adminCode, account.username, deleteData)
+    if (!result.ok) {
+      setBusy(false)
+      setError(errorOf(result, T.admin.deleteFailed))
+      return
+    }
+    await onDeleted(who)
+  }
+
+  return (
+    <Modal onClose={busy ? () => {} : onClose} labelledBy="deleteTitle" wide>
+      <h2 id="deleteTitle" className="text-[1.375rem] leading-tight font-black">
+        {T.admin.deleteTitle(who)}
+      </h2>
+      <p className="mt-2 text-muted">{T.admin.deleteExplain}</p>
+      <p className="mt-1 text-muted">{deleteData ? '' : T.admin.deleteKeep}</p>
+
+      <label className="mt-4 flex cursor-pointer items-start gap-3 font-bold">
+        <input
+          type="checkbox"
+          className="mt-1 size-6 shrink-0 accent-danger"
+          checked={deleteData}
+          onChange={(e) => setDeleteData(e.target.checked)}
+        />
+        <span>{T.admin.deleteData}</span>
+      </label>
+
+      <div className={field}>
+        <label className={fieldLabel} htmlFor="deleteConfirmInput">
+          {T.admin.deleteTypeLabel(account.username)}
+        </label>
+        <input
+          id="deleteConfirmInput"
+          className={input}
+          type="text"
+          autoComplete="off"
+          autoCapitalize="none"
+          spellCheck={false}
+          value={typed}
+          onChange={(e) => setTyped(e.target.value)}
+        />
+      </div>
+
+      {error && (
+        <p role="alert" className="mt-4 rounded-xl bg-danger-bg px-3.5 py-3 font-bold text-danger">
+          {error}
+        </p>
+      )}
+      <div className="mt-4 grid grid-cols-2 gap-2.5">
+        <button type="button" className={btnQuiet} disabled={busy} onClick={onClose}>
+          {T.common.cancel}
+        </button>
+        <button
+          type="button"
+          className={btnDanger}
+          disabled={busy || typed.trim() !== account.username}
+          onClick={() => void confirm()}
+        >
+          {busy ? T.admin.deleting : T.admin.deleteConfirm}
+        </button>
+      </div>
+    </Modal>
   )
 }

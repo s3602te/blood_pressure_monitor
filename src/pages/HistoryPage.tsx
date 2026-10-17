@@ -5,7 +5,7 @@ import { DayDialog } from '../components/DayDialog'
 import { TrendCard } from '../components/TrendCard'
 import { UndoToast } from '../components/UndoToast'
 import { usePageTitle, useRecords, useRefreshRecords } from '../hooks/hooks'
-import { aggregateByDate, average, HIGH_DIA, HIGH_SYS, weekTrend } from '../lib/records'
+import { aggregateByDate, average, HIGH_DIA, HIGH_SYS, monthSummary, weekTrend } from '../lib/records'
 import type { BpRecord } from '../lib/types'
 import { T } from '../text'
 import { btnPrimary, btnQuiet, card, hiMark, input, linkBtn, pageTitle } from '../ui'
@@ -18,6 +18,7 @@ export default function HistoryPage() {
   const refresh = useRefreshRecords()
   const days = useMemo(() => aggregateByDate(records.data ?? []), [records.data])
   const trend = useMemo(() => weekTrend(days, new Date()), [days])
+  const month = useMemo(() => monthSummary(days, new Date()), [days])
 
   const [page, setPage] = useState(1) // 第 1 頁 = 最新的 7 天
   const [openIso, setOpenIso] = useState<string | null>(null) // 打開「修改」視窗的那一天
@@ -160,6 +161,20 @@ export default function HistoryPage() {
               {T.history.newer}
             </button>
           </div>
+
+          {month && (
+            <section className={card} aria-label={T.history.month.title}>
+              <h2 className="text-xl font-black">{T.history.month.title}</h2>
+              <p className="mt-1 tabular-nums">
+                {T.history.month.summary(month.from.slice(5).replace('-', '/'), month.to.slice(5).replace('-', '/'), month.avgBp)}
+              </p>
+              <p className="text-[0.9375rem] text-muted">{T.history.month.days(month.count, month.highDays)}</p>
+              <div className="mt-3">
+                <ChartPanel days={month.days} compact />
+              </div>
+              <p className="mt-2 text-sm text-muted">{T.history.month.note}</p>
+            </section>
+          )}
         </>
       )}
 

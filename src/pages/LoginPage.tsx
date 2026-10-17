@@ -1,5 +1,5 @@
 import { useEffect, useState, type FormEvent } from 'react'
-import { Navigate } from 'react-router-dom'
+import { Link, Navigate } from 'react-router-dom'
 import { authenticate, errorOf, ping, saveSession } from '../lib/api'
 import { usePageTitle, useSession } from '../hooks/hooks'
 import { T } from '../text'
@@ -29,11 +29,17 @@ export default function LoginPage() {
   const submit = async (e: FormEvent) => {
     e.preventDefault()
     if (busy) return
+    // 帳號就是手機號碼：把不小心輸入的空白、橫線去掉（0912-345-678 → 0912345678）
+    const phone = username.replace(/[\s\-－—]/g, '')
+    if (register && !/^0\d{9}$/.test(phone)) {
+      setStatus({ text: T.login.phoneInvalid, kind: 'error' })
+      return
+    }
     setBusy(true)
     setStatus({ text: register ? T.login.busyRegister : T.login.busyLogin, kind: 'info' })
 
     const result = await authenticate(mode, {
-      username: username.trim(),
+      username: phone,
       password,
       ...(register ? { displayName: displayName.trim(), inviteCode: inviteCode.trim() } : {}),
     })
@@ -80,11 +86,13 @@ export default function LoginPage() {
         <div className={field}>
           <label className={fieldLabel} htmlFor="username">
             {T.login.username}
+            {register && <span className={fieldHint}> {T.login.usernameHintRegister}</span>}
           </label>
           <input
             id="username"
             className={input}
             type="text"
+            inputMode={register ? 'numeric' : 'text'}
             placeholder={T.login.usernamePlaceholder}
             autoComplete="username"
             autoCapitalize="none"
@@ -167,6 +175,13 @@ export default function LoginPage() {
           {status?.text}
         </p>
       </form>
+
+      {!register && <p className="mt-5 text-sm text-muted">{T.login.forgot}</p>}
+      <p className="mt-4 pb-10 text-sm">
+        <Link to="/help" className="font-bold text-teal-deep underline underline-offset-[3px]">
+          {T.login.helpLink}
+        </Link>
+      </p>
     </main>
   )
 }

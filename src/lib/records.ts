@@ -236,11 +236,24 @@ const csvCell = (value: string | number) => {
   return /[",\r\n]/.test(text) ? `"${text.replace(/"/g, '""')}"` : text
 }
 
-/** 把報告轉成 CSV。每一列是一次量測，由新到舊；開頭加 BOM，Excel 才不會把中文變亂碼。 */
-export function reportToCsv(report: Report): string {
-  const header = T.doctor.csvHeader
+/**
+ * 把報告轉成 CSV。每一列是一次量測，由新到舊；開頭加 BOM，Excel 才不會把中文變亂碼。
+ * includeNotes = false 時整欄「今日狀況」都不放（備註有私人內容時用）。
+ */
+export function reportToCsv(report: Report, includeNotes = true): string {
+  const header = includeNotes ? [...T.doctor.csvHeader, T.doctor.csvNotesHeader] : T.doctor.csvHeader
   const lines = report.rows.map((r) =>
-    [r.date, T.common.weekday(r.weekday), r.slot === 0 ? T.common.morning : T.common.evening, r.time, r.rec.sys, r.rec.dia, r.rec.pulse, r.rec.med, r.rec.notes]
+    [
+      r.date,
+      T.common.weekday(r.weekday),
+      r.slot === 0 ? T.common.morning : T.common.evening,
+      r.time,
+      r.rec.sys,
+      r.rec.dia,
+      r.rec.pulse,
+      r.rec.med,
+      ...(includeNotes ? [r.rec.notes] : []),
+    ]
       .map(csvCell)
       .join(','),
   )
@@ -317,6 +330,35 @@ export function weekTrend(days: DayAgg[], today: Date): Trend {
   else if (Math.abs(dSys) <= 2 && Math.abs(dDia) <= 1) kind = thisWeek.sys >= HIGH_SYS || thisWeek.dia >= HIGH_DIA ? 'steadyHigh' : 'steady'
   else kind = 'mixed'
   return { kind, range, thisWeek, lastWeek, dSys, dDia }
+}
+
+/* ───────────── 歷史頁：最近 1 個月 ───────────── */
+
+export interface MonthSummary {
+  days: DayAgg[]
+  from: string
+  to: string
+  avgBp: string
+  /** 有記錄的天數 */
+  count: number
+  /** 其中偏高的天數（當天平均 ≥135/85） */
+  highDays: number
+}
+
+/** 最近 30 個日曆天（含今天）的總覽；有記錄的天數少於 3 天就不顯示（回傳 null） */
+export function monthSummary(days: DayAgg[], today: Date): MonthSummary | null {
+  const from = dateText(addDays(today, -29))
+  const to = dateText(today)
+  const list = days.filter((d) => d.iso >= from && d.iso <= to)
+  if (list.length < 3) return null
+  return {
+    days: list,
+    from,
+    to,
+    avgBp: `${average(list, 'sys')}/${average(list, 'dia')}`,
+    count: list.length,
+    highDays: list.filter((d) => isHigh(d.sys, d.dia)).length,
+  }
 }
 
 /* ───────────── 管理頁：多久沒用 ───────────── */
