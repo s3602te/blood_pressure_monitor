@@ -305,30 +305,7 @@ function listRecords_(p) {
 
 /* ───────────── Discord 提醒 ───────────── */
 
-function sendDiscordReminder() {
-  const webhookUrl = prop_('DISCORD_WEBHOOK');
-  if (!webhookUrl) {
-    Logger.log('尚未設定 DISCORD_WEBHOOK，略過提醒');
-    return;
-  }
-  const payload = {
-    content: '🔔 **量血壓提醒**：記得測量血壓，並到這裡記錄：' + SITE_URL,
-    username: 'BloodPressureBot'
-  };
-  try {
-    const res = UrlFetchApp.fetch(webhookUrl, {
-      method: 'post',
-      contentType: 'application/json',
-      payload: JSON.stringify(payload),
-      muteHttpExceptions: true
-    });
-    Logger.log('Discord Webhook 回應: ' + res.getResponseCode());
-  } catch (err) {
-    Logger.log('發送 Discord 通知時發生錯誤: ' + err);
-  }
-}
-
-// 有事情要立刻讓管理者知道（例如有人一直猜管理密碼）。沒設定 DISCORD_WEBHOOK 就略過。
+// 有事情要立刻讓管理者知道（例如有人一直猜管理密碼、備份失敗、提醒大家量血壓）。沒設定 DISCORD_WEBHOOK 就略過。
 function notifyDiscord_(text) {
   const url = prop_('DISCORD_WEBHOOK');
   if (!url) return;
@@ -344,14 +321,65 @@ function notifyDiscord_(text) {
   }
 }
 
-// 執行一次即可：每天 07:00、21:45 提醒（早上、晚上各一次）
+// 每天早上（07:00）、晚上（21:45）各提醒一次，而且「只提醒那個時段還沒記錄的人」；大家都記錄了就不發。
+// 沒有設定 DISCORD_WEBHOOK 就略過。
+function sendMorningReminder() { sendReminder_('morning'); }
+function sendEveningReminder() { sendReminder_('evening'); }
+
+// 舊版的排程還在用這個名字：依現在的時間判斷是早上還是晚上（重新執行 setupTriggers 之後就不會再用到）
+function sendDiscordReminder() {
+  sendReminder_(Number(Utilities.formatDate(new Date(), sheetTz_(), 'H')) < 12 ? 'morning' : 'evening');
+}
+
+function sendReminder_(slot) {
+  if (!prop_('DISCORD_WEBHOOK')) {
+    Logger.log('尚未設定 DISCORD_WEBHOOK，略過提醒');
+    return;
+  }
+  const missing = accountsMissing_(slot);
+  if (!missing.length) {
+    Logger.log('大家這個時段都記錄了，不提醒');
+    return;
+  }
+  const label = slot === 'morning' ? '早上' : '晚上';
+  notifyDiscord_('🔔 **量血壓提醒**：' + missing.join('、') + ' 今天' + label + '還沒記錄血壓，量完記得到這裡記錄：' + SITE_URL);
+}
+
+// 今天這個時段還沒有記錄的帳號（顯示名稱）。時段的算法和網站相同：凌晨 4 點到中午 12 點前是早上，其餘是晚上。
+function accountsMissing_(slot) {
+  const ss = spreadsheet_();
+  const tz = sheetTz_();
+  const today = Utilities.formatDate(new Date(), tz, 'yyyy-MM-dd');
+  const rows = accountSheet_().getDataRange().getValues();
+  const missing = [];
+  for (let i = 1; i < rows.length; i++) {
+    if (String(rows[i][0]) === '') continue;
+    let done = false;
+    const sheet = ss.getSheetByName(String(rows[i][2]));
+    if (sheet && sheet.getLastRow() > 1) {
+      const data = sheet.getRange(2, 1, sheet.getLastRow() - 1, 8).getValues();
+      for (let r = 0; r < data.length && !done; r++) {
+        if (dateText_(data[r][0]) !== today) continue;
+        const created = data[r][7];
+        const hour = created instanceof Date ? Number(Utilities.formatDate(created, tz, 'H')) : 0;
+        const isMorning = !(created instanceof Date) || (hour >= 4 && hour < 12);
+        if ((slot === 'morning') === isMorning) done = true;
+      }
+    }
+    if (!done) missing.push(String(rows[i][1]) || String(rows[i][0]));
+  }
+  return missing;
+}
+
+// 執行一次即可：設定每天 07:00（早上）、21:45（晚上）的提醒排程。重複執行沒關係，會先刪掉舊的再建立。
+const REMINDER_HANDLERS = ['sendDiscordReminder', 'sendMorningReminder', 'sendEveningReminder'];
+
 function setupTriggers() {
   ScriptApp.getProjectTriggers().forEach(function (t) {
-    if (t.getHandlerFunction() === 'sendDiscordReminder') ScriptApp.deleteTrigger(t);
+    if (REMINDER_HANDLERS.indexOf(t.getHandlerFunction()) !== -1) ScriptApp.deleteTrigger(t);
   });
-  [[7, 0], [21, 45]].forEach(function (hm) {
-    ScriptApp.newTrigger('sendDiscordReminder')
-      .timeBased().everyDays(1).atHour(hm[0]).nearMinute(hm[1]).create();
+  [['sendMorningReminder', 7, 0], ['sendEveningReminder', 21, 45]].forEach(function (x) {
+    ScriptApp.newTrigger(x[0]).timeBased().everyDays(1).atHour(x[1]).nearMinute(x[2]).create();
   });
 }
 

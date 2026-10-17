@@ -1,5 +1,6 @@
 import { useState } from 'react'
 import { useNavigate } from 'react-router-dom'
+import { T } from '../text'
 import { btnPrimary, btnQuiet } from '../ui'
 import { Modal } from './Modal'
 
@@ -23,13 +24,13 @@ export function VersionDialog({ username, onClose }: { username: string; onClose
   return (
     <Modal onClose={onClose} labelledBy="versionTitle" dismissOnBackdrop={false}>
       <h2 id="versionTitle" className="text-[1.625rem] leading-tight font-black">
-        版本資訊
+        {T.version.title}
       </h2>
       <dl className="mt-3 text-left text-base">
         {[
-          ['版本', __APP_VERSION__],
-          ['建置時間', __BUILD_TIME__],
-          ['登入帳號', username],
+          [T.version.version, __APP_VERSION__],
+          [T.version.buildTime, __BUILD_TIME__],
+          [T.version.account, username],
         ].map(([k, v]) => (
           <div key={k} className="flex justify-between gap-3 border-b border-line py-2">
             <dt className="text-muted">{k}</dt>
@@ -46,13 +47,13 @@ export function VersionDialog({ username, onClose }: { username: string; onClose
           void reloadLatest()
         }}
       >
-        {busy ? '重新載入中…' : '清除快取並重新載入'}
+        {busy ? T.version.reloading : T.version.reload}
       </button>
       <button type="button" className={`${btnQuiet} mt-3`} onClick={() => navigate('/admin')}>
-        管理員頁面
+        {T.version.admin}
       </button>
       <button type="button" className={`${btnPrimary} mt-3`} onClick={onClose}>
-        關閉
+        {T.common.close}
       </button>
     </Modal>
   )

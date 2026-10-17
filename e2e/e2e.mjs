@@ -107,6 +107,7 @@ try {
   await page.goto(BASE)
   await page.waitForURL(/#\/login/)
   check(await page.getByRole('button', { name: '登入', exact: true }).isVisible(), '沒登入會到登入頁')
+  check(((await page.locator('#username').getAttribute('placeholder')) || '').includes('手機號碼'), '帳號欄位提示填手機號碼')
   await shot('01-login')
 
   // 2. 登入錯誤、再登入
@@ -120,6 +121,7 @@ try {
   await page.getByRole('heading', { name: '記錄今天的血壓' }).waitFor()
   check(true, '登入後到記錄頁')
   await shot('02-record')
+  check(await page.getByText('測量日期', { exact: true }).isVisible() && !(await page.getByText('量測日期').count()), '「量測日期」已改成「測量日期」')
   check(!(await page.getByText(/版本/).count()), '頁面上平常看不到版本字樣')
   check(await page.getByText('點右上角「放大」，字會變大').isVisible(), '第一次使用的提示很短：點右上角「放大」，字會變大')
   check((await page.getByRole('button', { name: '放大', exact: true }).getAttribute('class')).includes('animate-hint'), '「放大」按鈕會閃爍提示')
@@ -307,6 +309,8 @@ try {
   // 9. 建立帳號、舊網址、管理頁
   await pick('mode', 'register')
   check(await page.getByText('向序亞詢問').isVisible(), '註冊頁邀請碼文字')
+  check(((await page.locator('#displayName').getAttribute('placeholder')) || '').includes('王小美') && await page.getByText('請填自己的姓名').isVisible(), '顯示名稱改成提示填自己的姓名')
+  check(((await page.locator('#password').getAttribute('placeholder')) || '').includes('0304') && await page.getByText(/用生日 4 碼/).isVisible(), '密碼提示用生日 4 碼（例如 0304）')
   await shot('14-register')
   await page.goto(BASE + 'admin.html')
   await page.waitForURL(/#\/admin/)

@@ -33,3 +33,11 @@ export interface NewRecord {
   /** 沒訊號暫存時，記下當初按下儲存的時間 */
   clientAt?: number
 }
+
+/**
+ * 「有吃／沒吃」是存進試算表的資料值，後端也靠它判斷，不能改（改了舊資料會對不上）。
+ * 畫面上顯示的文字另外在 src/text.ts。
+ */
+export const MED_YES = '有吃'
+export const MED_NO = '沒吃'
+export const MED_OPTIONS = [MED_YES, MED_NO] as const

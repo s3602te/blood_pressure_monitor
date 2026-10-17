@@ -1,3 +1,4 @@
+import { T } from '../text'
 import { addRecord, handleAuthError } from './api'
 import { pendingQueue } from './storage'
 import type { NewRecord } from './types'
@@ -29,7 +30,7 @@ export async function flushPending(): Promise<FlushOutcome> {
         break
       } else {
         pendingQueue.remove(item.requestId)
-        outcome.dropped.push({ item, error: res.error || '無法儲存' })
+        outcome.dropped.push({ item, error: res.error || T.common.cannotSave })
       }
     }
   } finally {

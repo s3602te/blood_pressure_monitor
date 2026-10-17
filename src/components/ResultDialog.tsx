@@ -1,4 +1,5 @@
 import { useEffect } from 'react'
+import { T } from '../text'
 import { btnPrimary } from '../ui'
 import { Modal } from './Modal'
 
@@ -39,7 +40,7 @@ export function ResultDialog({ result, onClose }: { result: ResultInfo; onClose:
       </h2>
       {result.detail && <p className="mt-2 break-words whitespace-pre-line text-muted">{result.detail}</p>}
       <button type="button" className={`${btnPrimary} mt-[22px]`} onClick={onClose} autoFocus>
-        好
+        {T.common.ok}
       </button>
     </Modal>
   )

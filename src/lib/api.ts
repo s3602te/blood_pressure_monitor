@@ -1,4 +1,5 @@
 import { API_URL } from '../config'
+import { T } from '../text'
 import { recordCache, sessionStore } from './storage'
 import type { ApiResult, BpRecord, NewRecord, Session } from './types'
 
@@ -24,7 +25,7 @@ export async function callApi<T extends object = object>(
     const res = await fetch(API_URL, { method: 'POST', body, signal: controller.signal })
     return (await res.json()) as ApiResult<T>
   } catch {
-    return { ok: false, error: '連不上伺服器，請檢查網路後再試', code: 'NETWORK' }
+    return { ok: false, error: T.errors.network, code: 'NETWORK' }
   } finally {
     clearTimeout(timer)
   }

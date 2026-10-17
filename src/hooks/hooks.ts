@@ -1,6 +1,7 @@
 import { useEffect, useSyncExternalStore } from 'react'
 import { useQuery, useQueryClient } from '@tanstack/react-query'
 import { errorOf, fetchRecords, handleAuthError } from '../lib/api'
+import { T } from '../text'
 import { fontSize, pendingQueue, recordCache, sessionStore } from '../lib/storage'
 
 export const useSession = () => useSyncExternalStore(sessionStore.subscribe, sessionStore.get)
@@ -24,8 +25,8 @@ export function useRecords() {
     initialDataUpdatedAt: () => recordCache.read()?.at,
     queryFn: async () => {
       const result = await fetchRecords()
-      if (handleAuthError(result)) throw new Error('登入已過期，請重新登入')
-      if (!result.ok) throw new Error(errorOf(result, '讀取失敗，請稍後再試'))
+      if (handleAuthError(result)) throw new Error(T.errors.authExpired)
+      if (!result.ok) throw new Error(errorOf(result, T.errors.loadFailed))
       return result.records
     },
   })
@@ -52,6 +53,6 @@ export const useOnline = () => useSyncExternalStore(subscribeOnline, () => navig
 /** 設定網頁標題（顯示在瀏覽器分頁上） */
 export function usePageTitle(title: string) {
   useEffect(() => {
-    document.title = `${title}｜血壓記錄`
+    document.title = T.app.pageTitle(title)
   }, [title])
 }

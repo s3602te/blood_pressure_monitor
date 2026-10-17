@@ -1,7 +1,8 @@
 import { useState, type FormEvent } from 'react'
 import { deleteRecord, errorOf, handleAuthError, updateRecord, type RecordRef } from '../lib/api'
 import { dateText, isHigh, pad, slotName, type DayAgg } from '../lib/records'
-import type { BpRecord } from '../lib/types'
+import { MED_OPTIONS, type BpRecord } from '../lib/types'
+import { T } from '../text'
 import { btnDanger, btnPrimary, btnQuiet, field, fieldLabel, hiMark, input, segInput, segLabel, segWrap } from '../ui'
 import { Modal } from './Modal'
 
@@ -17,7 +18,7 @@ interface Props {
 const refOf = (r: BpRecord): RecordRef => ({ row: r.row as number, origAt: r.at, origDate: r.date })
 
 function timeText(r: BpRecord) {
-  if (!r.at) return '（沒有記錄時間）'
+  if (!r.at) return T.day.noTime
   const t = new Date(r.at)
   return `${slotName(r.at)} ${pad(t.getHours())}:${pad(t.getMinutes())}`
 }
@@ -30,13 +31,13 @@ export function DayDialog({ day, onChanged, onDeleted, onClose }: Props) {
 
   // 沒成功：顯示原因。資料如果已經被別處改過（STALE），順便更新畫面。
   const fail = async (result: Parameters<typeof errorOf>[0]) => {
-    setError(errorOf(result, '沒有成功，請再試一次'))
+    setError(errorOf(result, T.day.failedFallback))
     if (!result.ok && result.code === 'STALE') await onChanged()
   }
 
   const remove = async (r: BpRecord) => {
-    const what = `${r.date}　${r.sys}/${r.dia}　脈搏 ${Number.isFinite(r.pulse) ? r.pulse : '--'}`
-    if (!confirm(`確定要刪除這筆紀錄嗎？\n\n${what}\n\n刪除後無法復原。`)) return
+    const what = T.day.deleteWhat(r.date, r.sys, r.dia, Number.isFinite(r.pulse) ? String(r.pulse) : T.common.none)
+    if (!confirm(T.day.deleteConfirm(what))) return
     setError('')
     setBusy(true)
     const result = await deleteRecord(refOf(r))
@@ -50,10 +51,10 @@ export function DayDialog({ day, onChanged, onDeleted, onClose }: Props) {
   return (
     <Modal onClose={onClose} labelledBy="dayTitle" wide>
       <h2 id="dayTitle" className="text-center text-[1.625rem] leading-tight font-black">
-        {day.label}（週{day.weekday}）的紀錄
+        {T.day.title(day.label, T.common.weekday(day.weekday))}
       </h2>
       <p className="mt-2 text-center break-words text-muted">
-        {day.items.length > 1 ? `這天有 ${day.items.length} 筆，可以分別修改或刪除。` : '可以修改或刪除這筆紀錄。'}
+        {day.items.length > 1 ? T.day.manyHint(day.items.length) : T.day.oneHint}
       </p>
 
       {day.items.map((r) =>
@@ -85,7 +86,11 @@ export function DayDialog({ day, onChanged, onDeleted, onClose }: Props) {
               <span className={isHigh(r.sys, r.dia) ? hiMark : ''}>
                 {r.sys}/{r.dia}
               </span>
-              {Number.isFinite(r.pulse) && <span className="text-base font-normal text-muted">　脈搏 {r.pulse}</span>}
+              {Number.isFinite(r.pulse) && (
+                <span className="text-base font-normal text-muted">
+                  　{T.common.pulse} {r.pulse}
+                </span>
+              )}
             </div>
             {(r.med || r.notes) && (
               <div className="break-words text-ink-soft">{[r.med, r.notes].filter(Boolean).join('　｜　')}</div>
@@ -93,10 +98,10 @@ export function DayDialog({ day, onChanged, onDeleted, onClose }: Props) {
             {r.row && (
               <div className="mt-3 grid grid-cols-2 gap-2.5">
                 <button type="button" className={btnQuiet} disabled={busy} onClick={() => setEditing(r.row as number)}>
-                  修改
+                  {T.day.edit}
                 </button>
                 <button type="button" className={btnDanger} disabled={busy} onClick={() => void remove(r)}>
-                  刪除
+                  {T.day.delete}
                 </button>
               </div>
             )}
@@ -110,7 +115,7 @@ export function DayDialog({ day, onChanged, onDeleted, onClose }: Props) {
         </p>
       )}
       <button type="button" className={`${btnQuiet} mt-4`} onClick={onClose}>
-        關閉
+        {T.common.close}
       </button>
     </Modal>
   )
@@ -147,32 +152,32 @@ function EditForm({ record, busy, onCancel, onSubmit }: EditProps) {
     <form onSubmit={submit} className="mt-3.5 rounded-card border-2 border-teal px-3.5 pb-3.5">
       <div className={field}>
         <label className={fieldLabel} htmlFor="editDate">
-          日期
+          {T.day.editDate}
         </label>
         <input id="editDate" className={input} type="date" max={dateText(new Date())} required value={date} onChange={(e) => setDate(e.target.value)} />
       </div>
       <div className={field}>
         <label className={fieldLabel} htmlFor="editSys">
-          收縮壓（高壓）
+          {T.common.systolic}
         </label>
         <input id="editSys" className={input} type="number" inputMode="numeric" min={50} max={300} required autoFocus value={sys} onChange={(e) => setSys(e.target.value)} />
       </div>
       <div className={field}>
         <label className={fieldLabel} htmlFor="editDia">
-          舒張壓（低壓）
+          {T.common.diastolic}
         </label>
         <input id="editDia" className={input} type="number" inputMode="numeric" min={30} max={200} required value={dia} onChange={(e) => setDia(e.target.value)} />
       </div>
       <div className={field}>
         <label className={fieldLabel} htmlFor="editPulse">
-          脈搏
+          {T.common.pulse}
         </label>
         <input id="editPulse" className={input} type="number" inputMode="numeric" min={30} max={250} required value={pulse} onChange={(e) => setPulse(e.target.value)} />
       </div>
-      <div className={field} role="radiogroup" aria-label="有吃藥嗎？">
-        <span className={fieldLabel}>有吃藥嗎？</span>
+      <div className={field} role="radiogroup" aria-label={T.common.medicationQuestion}>
+        <span className={fieldLabel}>{T.common.medicationQuestion}</span>
         <div className={segWrap}>
-          {['有吃', '沒吃'].map((v) => (
+          {MED_OPTIONS.map((v) => (
             <label key={v} className="relative m-0 block">
               <input className={segInput} type="radio" name="editMed" value={v} required checked={med === v} onChange={() => setMed(v)} />
               <span className={segLabel}>{v}</span>
@@ -182,16 +187,16 @@ function EditForm({ record, busy, onCancel, onSubmit }: EditProps) {
       </div>
       <div className={field}>
         <label className={fieldLabel} htmlFor="editNotes">
-          今天的狀況
+          {T.day.editNotes}
         </label>
         <textarea id="editNotes" className={`${input} min-h-24 resize-y`} maxLength={500} value={notes} onChange={(e) => setNotes(e.target.value)} />
       </div>
       <div className="mt-3 grid grid-cols-2 gap-2.5">
         <button type="submit" className={`${btnPrimary} mt-0 min-h-12`} disabled={busy}>
-          {busy ? '儲存中…' : '儲存修改'}
+          {busy ? T.common.saving : T.day.save}
         </button>
         <button type="button" className={btnQuiet} disabled={busy} onClick={onCancel}>
-          取消
+          {T.common.cancel}
         </button>
       </div>
     </form>

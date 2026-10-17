@@ -5,7 +5,8 @@ import { flushPending } from '../lib/pending'
 import { pendingQueue } from '../lib/storage'
 import { bpAdvice } from '../lib/advice'
 import { dateText, todayStatus, WEEKDAYS } from '../lib/records'
-import type { NewRecord } from '../lib/types'
+import { MED_OPTIONS, type NewRecord } from '../lib/types'
+import { T } from '../text'
 import { usePageTitle, usePendingCount, useRecords } from '../hooks/hooks'
 import { ResultDialog, type ResultInfo } from '../components/ResultDialog'
 import { btnPrimary, btnQuiet, field, fieldHint, fieldLabel, input, pageTitle, segInput, segLabel, segWrap } from '../ui'
@@ -21,7 +22,7 @@ const bigInput =
   'w-full border-0 border-b-[3px] border-white/30 bg-transparent pb-0.5 text-[60px] leading-[1.15] font-black text-white tabular-nums placeholder:text-white/25 focus:border-glow focus:outline-none max-[380px]:text-[50px] [appearance:textfield] [&::-webkit-inner-spin-button]:appearance-none [&::-webkit-outer-spin-button]:appearance-none'
 
 export default function RecordPage() {
-  usePageTitle('記錄血壓')
+  usePageTitle(T.record.pageTitle)
   const qc = useQueryClient()
   const records = useRecords() // 先把歷史紀錄抓好，之後打開歷史頁就不用等；同時確認登入還有效
   const pendingCount = usePendingCount()
@@ -68,14 +69,14 @@ export default function RecordPage() {
       setRetrying(false)
 
       if (outcome.dropped.length) {
-        const lines = outcome.dropped.map(
-          (d) => `${d.item.date}　${d.item.systolic}/${d.item.diastolic}：${d.error}`,
+        const lines = outcome.dropped.map((d) =>
+          T.record.droppedLine(d.item.date, d.item.systolic, d.item.diastolic, d.error),
         )
-        setResult({ kind: 'error', title: '有資料沒辦法儲存', detail: lines.join('\n') + '\n請重新輸入一次。' })
+        setResult({ kind: 'error', title: T.record.droppedTitle, detail: [...lines, T.record.droppedFooter].join('\n') })
       } else if (outcome.sent) {
-        setResult({ kind: 'ok', title: `已補送 ${outcome.sent} 筆`, detail: '先前暫存的血壓已經上傳完成。' })
+        setResult({ kind: 'ok', title: T.record.sentTitle(outcome.sent), detail: T.record.sentDetail })
       } else if (manual && outcome.blocked) {
-        setResult({ kind: 'warn', title: '還是連不上網路', detail: '資料還在這支手機裡沒有遺失，有網路時會再自動補送。' })
+        setResult({ kind: 'warn', title: T.record.stillOfflineTitle, detail: T.record.stillOfflineDetail })
       }
       if (outcome.sent) void qc.invalidateQueries({ queryKey: ['records'] })
     },
@@ -124,10 +125,10 @@ export default function RecordPage() {
       // 沒訊號：先存在手機，補送時帶著「當初按下儲存的時間」，早上／晚上才不會算錯
       pendingQueue.add({ ...params, clientAt: Date.now() })
       const advice = bpAdvice(Number(params.systolic), Number(params.diastolic))
-      const saved = '現在連不上網路，資料先存在這支手機裡，有網路時會自動補送，請不要重複輸入。'
+      const saved = T.record.queuedDetail
       setResult({
         kind: advice ? (advice.level === 'veryHigh' ? 'urgent' : 'care') : 'warn',
-        title: advice ? `已暫存在手機，${advice.title}` : '已暫存在手機',
+        title: advice ? T.record.queuedWithAdvice(advice.title) : T.record.queuedTitle,
         detail: advice ? [saved, advice.text].join('\n\n') : saved,
       })
       resetForm()
@@ -135,19 +136,19 @@ export default function RecordPage() {
     }
 
     if (!res.ok) {
-      setResult({ kind: 'error', title: '沒有儲存成功', detail: res.error || '請再試一次' })
+      setResult({ kind: 'error', title: T.record.failedTitle, detail: res.error || T.record.failedFallback })
       return
     }
 
     if (res.duplicate) {
-      setResult({ kind: 'ok', title: '已經儲存過了', detail: '這筆資料剛剛已經存好，不會重複記錄。' })
+      setResult({ kind: 'ok', title: T.record.duplicateTitle, detail: T.record.duplicateDetail })
     } else {
       // 血壓偏高、偏低時，給一段溫和的提醒（要按「好」才會關，一定看得到）
       const advice = bpAdvice(Number(params.systolic), Number(params.diastolic))
-      const saved = `收縮壓 ${params.systolic} / 舒張壓 ${params.diastolic}，脈搏 ${params.pulse}`
+      const saved = T.record.savedDetail(params.systolic, params.diastolic, params.pulse)
       setResult({
         kind: advice ? (advice.level === 'veryHigh' ? 'urgent' : 'care') : 'ok',
-        title: advice ? `已儲存，${advice.title}` : '已儲存',
+        title: advice ? T.record.savedWithAdvice(advice.title) : T.record.savedTitle,
         detail: advice ? [saved, advice.text].join('\n\n') : saved,
       })
     }
@@ -157,16 +158,16 @@ export default function RecordPage() {
 
   return (
     <>
-      <h1 className={pageTitle}>記錄今天的血壓</h1>
+      <h1 className={pageTitle}>{T.record.heading}</h1>
       <p className="mt-1 text-muted">
-        今天是 {today.getMonth() + 1} 月 {today.getDate()} 日（週{WEEKDAYS[today.getDay()]}）
+        {T.record.today(today.getMonth() + 1, today.getDate(), WEEKDAYS[today.getDay()])}
       </p>
 
-      <div className="mt-4 grid grid-cols-2 gap-2.5" aria-label="今天的記錄狀況">
+      <div className="mt-4 grid grid-cols-2 gap-2.5" aria-label={T.record.statusAria}>
         {(
           [
-            ['早上', status.morning],
-            ['晚上', status.evening],
+            [T.common.morning, status.morning],
+            [T.common.evening, status.evening],
           ] as const
         ).map(([label, done]) => (
           <div
@@ -175,29 +176,27 @@ export default function RecordPage() {
               done ? 'border-teal bg-ok-bg text-teal-deep' : 'border-line bg-card text-muted'
             }`}
           >
-            {done ? `✓ ${label}已記錄` : `${label}還沒記錄`}
+            {done ? T.record.statusDone(label) : T.record.statusTodo(label)}
           </div>
         ))}
       </div>
 
       {pendingCount > 0 && (
         <div role="status" className="mt-4 rounded-xl bg-warn-bg px-4 py-3.5 font-bold text-warn">
-          <p>
-            有 {pendingCount} 筆血壓還沒上傳，目前先存在這支手機。連上網路後會自動補送，請不要重複輸入。
-          </p>
+          <p>{T.record.pendingText(pendingCount)}</p>
           <button type="button" className={`${btnQuiet} mt-2.5`} disabled={retrying} onClick={() => void sendPending(true)}>
-            現在重試上傳
+            {T.record.pendingRetry}
           </button>
         </div>
       )}
 
       <form onSubmit={onSubmit}>
         <div className="readout-panel mt-5 rounded-panel px-[22px] pt-[22px] pb-5 text-white">
-          <p className="text-base text-[#a9c7c8]">血壓（mmHg）</p>
+          <p className="text-base text-[#a9c7c8]">{T.record.panelCaption}</p>
           <div className="mt-2.5 grid grid-cols-[1fr_auto_1fr] items-end gap-2.5">
             <div>
               <label htmlFor="systolic" className="block text-base text-[#a9c7c8]">
-                收縮壓（高壓）
+                {T.common.systolic}
               </label>
               <input
                 id="systolic"
@@ -217,7 +216,7 @@ export default function RecordPage() {
             </span>
             <div>
               <label htmlFor="diastolic" className="block text-base text-[#a9c7c8]">
-                舒張壓（低壓）
+                {T.common.diastolic}
               </label>
               <input
                 id="diastolic"
@@ -235,7 +234,7 @@ export default function RecordPage() {
           </div>
           <div className="mt-[18px] flex items-baseline gap-3 border-t border-white/15 pt-4">
             <label htmlFor="pulse" className="text-base whitespace-nowrap text-[#a9c7c8]">
-              脈搏
+              {T.common.pulse}
             </label>
             <input
               id="pulse"
@@ -249,13 +248,13 @@ export default function RecordPage() {
               value={pulse}
               onChange={(e) => setPulse(e.target.value)}
             />
-            <span className="text-[0.9375rem] text-[#a9c7c8]">次／分鐘</span>
+            <span className="text-[0.9375rem] text-[#a9c7c8]">{T.record.pulseUnit}</span>
           </div>
         </div>
 
         <div className={field}>
           <label htmlFor="date" className={fieldLabel}>
-            量測日期
+            {T.record.dateLabel}
           </label>
           <input
             id="date"
@@ -270,10 +269,10 @@ export default function RecordPage() {
 
         <div className={field} role="radiogroup" aria-labelledby="medLabel">
           <span className={fieldLabel} id="medLabel">
-            今天有吃藥嗎？
+            {T.record.medLabel}
           </span>
           <div className={segWrap}>
-            {['有吃', '沒吃'].map((v) => (
+            {MED_OPTIONS.map((v) => (
               <label key={v} className="relative m-0 block">
                 <input
                   className={segInput}
@@ -292,20 +291,20 @@ export default function RecordPage() {
 
         <div className={field}>
           <label htmlFor="notes" className={fieldLabel}>
-            今天的狀況 <span className={fieldHint}>（選填）</span>
+            {T.record.notesLabel} <span className={fieldHint}>{T.record.optional}</span>
           </label>
           <textarea
             id="notes"
             className={`${input} min-h-24 resize-y`}
             maxLength={500}
-            placeholder="例如：心情好、有點累、壓力大"
+            placeholder={T.record.notesPlaceholder}
             value={notes}
             onChange={(e) => setNotes(e.target.value)}
           />
         </div>
 
         <button className={btnPrimary} type="submit" disabled={busy}>
-          {busy ? '儲存中…' : '儲存紀錄'}
+          {busy ? T.common.saving : T.record.submit}
         </button>
       </form>
 

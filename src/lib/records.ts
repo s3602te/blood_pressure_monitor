@@ -1,10 +1,11 @@
-import type { BpRecord } from './types'
+import { T } from '../text'
+import { MED_NO, MED_YES, type BpRecord } from './types'
 
 /** 家庭血壓參考值（mmHg）：收縮 135、舒張 85 以上標示為偏高 */
 export const HIGH_SYS = 135
 export const HIGH_DIA = 85
 
-export const WEEKDAYS = ['日', '一', '二', '三', '四', '五', '六']
+export const WEEKDAYS = T.common.weekdays
 
 export const pad = (n: number) => String(n).padStart(2, '0')
 
@@ -26,7 +27,7 @@ export function slotOf(at: number): 0 | 1 {
   return h >= 4 && h < 12 ? 0 : 1
 }
 
-export const slotName = (at: number) => (slotOf(at) === 0 ? '早上' : '晚上')
+export const slotName = (at: number) => (slotOf(at) === 0 ? T.common.morning : T.common.evening)
 
 const valid = (r: BpRecord) => !!r.date && Number.isFinite(r.sys) && Number.isFinite(r.dia)
 
@@ -44,7 +45,7 @@ export interface DayAgg {
   sys: number
   dia: number
   pulse: number | null
-  med: '有吃' | '沒吃'
+  med: typeof MED_YES | typeof MED_NO
   notes: string
   /** 這天的每一筆原始紀錄（修改、刪除要用，由舊到新） */
   items: BpRecord[]
@@ -73,7 +74,7 @@ export function aggregateByDate(records: BpRecord[]): DayAgg[] {
       sys: mean(items.map((r) => r.sys)) as number,
       dia: mean(items.map((r) => r.dia)) as number,
       pulse: mean(items.map((r) => r.pulse)),
-      med: items.some((r) => r.med === '有吃') ? '有吃' : '沒吃',
+      med: items.some((r) => r.med === MED_YES) ? MED_YES : MED_NO,
       notes: notes.join('；'),
       items,
     }
@@ -135,7 +136,7 @@ export function groupByDay(readings: BpRecord[]): ReportDay[] {
       d = { date: r.date, ...dayLabel(r.date), slots: [[], []], took: false, notes: [] }
       days.set(r.date, d)
     }
-    if (r.med === '有吃') d.took = true
+    if (r.med === MED_YES) d.took = true
     if (r.notes && !d.notes.includes(r.notes)) d.notes.push(r.notes)
     const slot = r.at ? slotOf(r.at) : d.slots[0].length ? 1 : 0
     d.slots[slot].push(r)
@@ -237,9 +238,9 @@ const csvCell = (value: string | number) => {
 
 /** 把報告轉成 CSV。每一列是一次量測，由新到舊；開頭加 BOM，Excel 才不會把中文變亂碼。 */
 export function reportToCsv(report: Report): string {
-  const header = ['日期', '星期', '時段', '時間', '收縮壓', '舒張壓', '脈搏', '吃藥', '今日狀況']
+  const header = T.doctor.csvHeader
   const lines = report.rows.map((r) =>
-    [r.date, `週${r.weekday}`, r.slot === 0 ? '早上' : '晚上', r.time, r.rec.sys, r.rec.dia, r.rec.pulse, r.rec.med, r.rec.notes]
+    [r.date, T.common.weekday(r.weekday), r.slot === 0 ? T.common.morning : T.common.evening, r.time, r.rec.sys, r.rec.dia, r.rec.pulse, r.rec.med, r.rec.notes]
       .map(csvCell)
       .join(','),
   )
@@ -330,8 +331,8 @@ export function daysSince(ms: number, now: Date): number | null {
 
 export function agoText(ms: number, now: Date): string {
   const d = daysSince(ms, now)
-  if (d === null) return '從來沒有'
-  if (d <= 0) return '今天'
-  if (d === 1) return '昨天'
-  return `${d} 天前`
+  if (d === null) return T.admin.ago.never
+  if (d <= 0) return T.admin.ago.today
+  if (d === 1) return T.admin.ago.yesterday
+  return T.admin.ago.days(d)
 }

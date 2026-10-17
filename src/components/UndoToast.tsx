@@ -1,5 +1,6 @@
 import { useEffect, useState } from 'react'
 import { addRecord, errorOf, handleAuthError } from '../lib/api'
+import { T } from '../text'
 import type { BpRecord } from '../lib/types'
 
 export const UNDO_SECONDS = 15
@@ -52,7 +53,7 @@ export function UndoToast({ record, onRestored, onDismiss }: Props) {
     if (handleAuthError(result)) return
     if (!result.ok) {
       setBusy(false)
-      setError(errorOf(result, '復原失敗，請再試一次'))
+      setError(errorOf(result, T.undo.failed))
       return
     }
     await onRestored()
@@ -69,9 +70,9 @@ export function UndoToast({ record, onRestored, onDismiss }: Props) {
           <span className="font-bold text-danger-bg">{error}</span>
         ) : (
           <>
-            <div className="font-bold">已刪除</div>
+            <div className="font-bold">{T.undo.deleted}</div>
             <div className="truncate text-[0.9375rem] text-[#a9c7c8]">
-              {record.date.slice(5).replace('-', '/')}　{record.sys}/{record.dia}　脈搏 {record.pulse}
+              {T.undo.summary(record.date.slice(5).replace('-', '/'), record.sys, record.dia, record.pulse)}
             </div>
           </>
         )}
@@ -82,11 +83,11 @@ export function UndoToast({ record, onRestored, onDismiss }: Props) {
         onClick={() => void restore()}
         className="min-h-11 cursor-pointer rounded-xl border-0 bg-glow px-4 text-lg font-black text-ink disabled:cursor-wait disabled:opacity-60"
       >
-        {busy ? '復原中…' : error ? '再試一次' : `復原（${left}）`}
+        {busy ? T.undo.restoring : error ? T.undo.retry : T.undo.restore(left)}
       </button>
       <button
         type="button"
-        aria-label="關閉提示"
+        aria-label={T.undo.dismissAria}
         onClick={onDismiss}
         disabled={busy}
         className="min-h-11 cursor-pointer border-0 bg-transparent px-1 text-2xl text-[#a9c7c8]"

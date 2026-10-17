@@ -5,7 +5,7 @@
 ```
 手機（GitHub Pages 靜態網頁 / PWA：React + Vite + Tailwind）
    └─ POST → Google Apps Script（apps-script/Code.gs）→ Google 試算表
-                                    └─ 每天 2 次（07:00、21:45）→ Discord 提醒
+                                    └─ 每天 2 次（07:00 早上、21:45 晚上）→ Discord 提醒，只點名還沒記錄的人
 
 GitHub Actions：push 到 main → 型別檢查 → 單元測試 → 建置 → 自動發佈到 GitHub Pages
 ```
@@ -13,6 +13,12 @@ GitHub Actions：push 到 main → 型別檢查 → 單元測試 → 建置 → 
 - 試算表的「帳號」分頁記錄所有帳號，密碼只存加鹽雜湊。
 - 每個帳號有自己的分頁，名稱＝帳號名稱；舊資料沿用「工作表1」。
 - 登入後，這台裝置會拿到 1 年有效的權杖，每天使用會自動續期，之後不用再輸入。
+
+## 要改網站上的文字
+
+網站上看得到的文字（按鈕、標題、提示、提醒…）全部集中在 **`src/text.ts`**，只要改這個檔案，不用到處找。檔案最上面有「怎麼改」的說明。
+例如把「量測日期」改成「測量日期」：打開 `src/text.ts`，找到 `dateLabel`，改引號裡的字就好。
+不在裡面的三種文字：「有吃／沒吃」（資料值，不能改）、`index.html` 的預設網頁標題與 `vite.config.ts` 的 App 名稱、`apps-script/Code.gs` 裡的後端訊息與 Discord 提醒。
 
 ## 前端（網站）
 
@@ -32,6 +38,7 @@ src/
   main.tsx            進入點（註冊自動更新、舊網址轉址）
   App.tsx             路由（用 # 網址，GitHub Pages 重新整理才不會 404）
   config.ts           後端（Apps Script）網址
+  text.ts             網站上所有的文字（要改字就改這裡）
   index.css           Tailwind 設定與顏色
   ui.ts               共用的 Tailwind 樣式組合
   lib/
@@ -83,7 +90,7 @@ repo 的 **Settings → Pages → Build and deployment → Source** 選 **GitHub
    | `ADMIN_CODE` | 管理頁面的管理密碼，要比邀請碼更難猜（要用管理頁面才需要） |
    | `SPREADSHEET_ID` | 指令碼綁在試算表裡可不填 |
 
-3. 編輯器選 `setupTriggers` 執行一次（只要設定過就不用再跑）。
+3. 編輯器選 `setupTriggers` 執行一次（只要設定過就不用再跑；**更新到「只提醒還沒記錄的人」這版時要再跑一次**，才會換成新的排程）。
 3-1. **第一次加上每週備份時**：編輯器選 `setupBackup` 按「執行」，照畫面授權「存取 Google 雲端硬碟」，**授權完成之後**才做下一步「部署新版本」（順序反了，網站會暫時出現「需要授權」的錯誤）。
 4. 部署 → 管理部署作業 → 編輯（鉛筆）→ 版本選「新版本」→ 部署。
    **一定要用鉛筆，不要「新增部署作業」**，網址才不會變（網址寫在 `src/config.ts`）。

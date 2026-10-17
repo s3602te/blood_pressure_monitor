@@ -3,13 +3,14 @@ import { NavLink, Navigate, Outlet } from 'react-router-dom'
 import { VersionDialog } from './VersionDialog'
 import { logout } from '../lib/api'
 import { fontHint, fontSize } from '../lib/storage'
+import { T } from '../text'
 import { useLargeFont, useOnline, useSession } from '../hooks/hooks'
 import { linkBtn, wrap } from '../ui'
 
 const NAV = [
-  { to: '/', label: '記錄血壓' },
-  { to: '/history', label: '歷史紀錄' },
-  { to: '/doctor', label: '給醫師看' },
+  { to: '/', label: T.nav.record },
+  { to: '/history', label: T.nav.history },
+  { to: '/doctor', label: T.nav.doctor },
 ]
 
 /** 登入後的共用外框：頂欄（名字、放大、登出）＋底部分頁列。沒登入就回登入頁。 */
@@ -32,7 +33,7 @@ export function Layout() {
   }
 
   const askLogout = () => {
-    if (confirm('確定要登出嗎？\n登出後要重新輸入帳號和密碼。')) void logout()
+    if (confirm(T.header.logoutConfirm)) void logout()
   }
 
   return (
@@ -41,7 +42,7 @@ export function Layout() {
         <div className={`${wrap} flex min-h-14 flex-wrap items-center justify-between gap-x-3`}>
           {/* 連點 5 下（3 秒內）會彈出版本資訊，給管理者查看；長輩平常不會注意到 */}
           <span className="text-xl font-black select-none" onClick={tapBrand}>
-            血壓記錄
+            {T.app.name}
           </span>
           <div className="flex items-center gap-3 text-base text-muted">
             <span>{session.displayName || session.username}</span>
@@ -54,10 +55,10 @@ export function Layout() {
                 fontSize.set(!large)
               }}
             >
-              {large ? '縮小' : '放大'}
+              {large ? T.header.small : T.header.large}
             </button>
             <button type="button" className={linkBtn} onClick={askLogout}>
-              登出
+              {T.header.logout}
             </button>
           </div>
         </div>
@@ -67,12 +68,12 @@ export function Layout() {
         <div className={`${wrap} print:hidden`}>
           {!online && (
             <p role="status" className="mt-3 rounded-xl bg-warn-bg px-4 py-3 font-bold text-warn">
-              目前沒有網路。血壓會先存在手機，連上網路後自動補送。
+              {T.header.offline}
             </p>
           )}
           {showHint && !large && (
             <div role="note" className="animate-hint mt-3 flex items-center gap-3 rounded-xl bg-ok-bg px-4 py-3 text-ok">
-              <p className="flex-1 text-lg font-black">點右上角「放大」，字會變大</p>
+              <p className="flex-1 text-lg font-black">{T.header.fontHint}</p>
               <button
                 type="button"
                 className="min-h-11 shrink-0 cursor-pointer rounded-xl border-2 border-teal bg-card px-3 font-bold text-teal-deep"
@@ -81,7 +82,7 @@ export function Layout() {
                   setShowHint(false)
                 }}
               >
-                知道了
+                {T.header.fontHintOk}
               </button>
             </div>
           )}
@@ -89,7 +90,7 @@ export function Layout() {
       )}
 
       <main className={`${wrap} pb-[calc(5.5rem+env(safe-area-inset-bottom))] print:max-w-none print:px-0 print:pb-0`}>
-        <Suspense fallback={<p className="mt-6 text-muted">讀取中…</p>}>
+        <Suspense fallback={<p className="mt-6 text-muted">{T.common.loading}</p>}>
           <Outlet />
         </Suspense>
       </main>
@@ -97,7 +98,7 @@ export function Layout() {
       {showVersion && <VersionDialog username={session.username} onClose={() => setShowVersion(false)} />}
 
       <nav
-        aria-label="主要頁面"
+        aria-label={T.nav.aria}
         className="fixed inset-x-0 bottom-0 grid grid-cols-3 border-t border-line bg-card pb-[env(safe-area-inset-bottom)] print:hidden"
       >
         {NAV.map((item) => (

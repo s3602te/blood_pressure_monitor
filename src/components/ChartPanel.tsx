@@ -10,6 +10,7 @@ import {
 } from 'chart.js'
 import { Line } from 'react-chartjs-2'
 import { HIGH_DIA, HIGH_SYS, type DayAgg } from '../lib/records'
+import { T } from '../text'
 import { useLargeFont } from '../hooks/hooks'
 
 ChartJS.register(CategoryScale, LinearScale, PointElement, LineElement, Tooltip, Legend)
@@ -83,14 +84,14 @@ export function ChartPanel({ days }: { days: DayAgg[] }) {
   return (
     <div className="relative h-[300px]">
       <Line
-        aria-label="血壓走勢圖"
+        aria-label={T.history.chartAria}
         role="img"
         plugins={[refLines]}
         data={{
           labels: days.map((d) => d.label),
           datasets: [
-            line('收縮壓（高壓）', 'sys', SYS_COLOR, HIGH_SYS),
-            line('舒張壓（低壓）', 'dia', DIA_COLOR, HIGH_DIA),
+            line(T.common.systolic, 'sys', SYS_COLOR, HIGH_SYS),
+            line(T.common.diastolic, 'dia', DIA_COLOR, HIGH_DIA),
           ],
         }}
         options={{
@@ -122,7 +123,7 @@ export function ChartPanel({ days }: { days: DayAgg[] }) {
               callbacks: {
                 footer: (items) => {
                   const d = days[items[0].dataIndex]
-                  return [`脈搏：${d.pulse ?? '--'}`, `吃藥：${d.med}`]
+                  return [`${T.common.pulse}：${d.pulse ?? T.common.none}`, `${T.history.colMed}：${d.med}`]
                 },
               },
             },
