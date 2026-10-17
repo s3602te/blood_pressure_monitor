@@ -26,7 +26,7 @@ const MIN_PASSWORD = 4;       // 密碼最短字元數（4 碼可以放生日）
 const LOCK_SECONDS = 600;     // 暫停時間（秒）
 const DUPLICATE_SECONDS = 5;  // 幾秒內完全相同的送出視為重複
 const BACKUP_FOLDER = '血壓記錄備份'; // 備份存放的資料夾（和試算表放在同一個地方）
-const BACKUP_KEEP = 8;        // 保留最近幾份備份，更舊的自動丟進垃圾桶（每週一份＝約 2 個月）
+const BACKUP_KEEP = 2;        // 保留最近幾份備份，更舊的自動丟進垃圾桶（每週一份＝約 2 週，不會越積越多）
 const REQUEST_ID_SECONDS = 21600; // 同一次填寫編號的記憶時間（6 小時，已是快取允許的最長時間）
 const SITE_URL = 'https://s3602te.github.io/blood_pressure_monitor/';
 
@@ -354,20 +354,34 @@ function setupTriggers() {
 
 /* ───────────── 每週自動備份 ───────────── */
 
-// 把整份試算表複製一份，存在「血壓記錄備份」資料夾。只保留最近 BACKUP_KEEP 份。
-// 試算表只有文字和數字，一份大約只有幾百 KB，8 份加起來也遠小於 Google 雲端硬碟的免費空間。
+// 把整份試算表匯出成一個 Excel 檔（.xlsx），存在「血壓記錄備份」資料夾。只保留最近 BACKUP_KEEP 份。
+// 為什麼用 .xlsx 而不是再複製一份 Google 試算表：Google 試算表首頁會把所有「試算表」都列出來，
+// 備份一多就很亂；.xlsx 只會出現在雲端硬碟的資料夾裡，不會出現在試算表首頁。
+// 需要還原時，在雲端硬碟對 .xlsx 按右鍵 →「開啟方式」→「Google 試算表」就能看。
+// 檔案很小（只有文字和數字，一份大約幾百 KB），而且只留最近 BACKUP_KEEP 份，幾乎不佔空間。
 function backupSpreadsheet() {
   try {
-    const file = DriveApp.getFileById(spreadsheet_().getId());
+    const id = spreadsheet_().getId();
+    const file = DriveApp.getFileById(id);
     const parents = file.getParents();
     const parent = parents.hasNext() ? parents.next() : DriveApp.getRootFolder();
     const folders = parent.getFoldersByName(BACKUP_FOLDER);
     const folder = folders.hasNext() ? folders.next() : parent.createFolder(BACKUP_FOLDER);
 
     const name = '血壓備份 ' + Utilities.formatDate(new Date(), sheetTz_(), 'yyyy-MM-dd');
-    const same = folder.getFilesByName(name); // 同一天重跑，只留最新的一份
-    while (same.hasNext()) same.next().setTrashed(true);
-    file.makeCopy(name, folder);
+    // 同一天重跑，只留最新的一份（舊格式「不含 .xlsx」的同名備份也一併換掉）
+    [name, name + '.xlsx'].forEach(function (n) {
+      const same = folder.getFilesByName(n);
+      while (same.hasNext()) same.next().setTrashed(true);
+    });
+
+    try {
+      folder.createFile(exportXlsx_(id).setName(name + '.xlsx'));
+    } catch (err) {
+      // 匯出 Excel 失敗時，退而求其次複製成 Google 試算表，至少有一份備份
+      Logger.log('匯出 Excel 失敗，改用複製：' + err);
+      file.makeCopy(name, folder);
+    }
 
     const backups = [];
     const all = folder.getFiles();
@@ -383,6 +397,15 @@ function backupSpreadsheet() {
     notifyDiscord_('⚠️ 血壓記錄的每週自動備份失敗了：' + err);
     throw err;
   }
+}
+
+function exportXlsx_(spreadsheetId) {
+  const res = UrlFetchApp.fetch('https://docs.google.com/spreadsheets/d/' + spreadsheetId + '/export?format=xlsx', {
+    headers: { Authorization: 'Bearer ' + ScriptApp.getOAuthToken() },
+    muteHttpExceptions: true
+  });
+  if (res.getResponseCode() !== 200) throw new Error('匯出失敗（' + res.getResponseCode() + '）');
+  return res.getBlob();
 }
 
 // 執行一次即可：設定每週日凌晨 3 點自動備份，並且馬上備份一次（第一次執行 Google 會要你授權存取雲端硬碟）。

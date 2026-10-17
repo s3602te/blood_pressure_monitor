@@ -127,6 +127,10 @@ try {
   await brand.click()
   await page.getByRole('heading', { name: '版本資訊' }).waitFor()
   check(await page.getByText('建置時間').isVisible(), '連點 5 下出現版本資訊')
+  await page.mouse.click(5, 5) // 連點多按了一下，點到視窗外的灰色背景
+  await page.mouse.click(190, 30)
+  await sleep(200)
+  check(await page.getByText('建置時間').isVisible(), '連點時多按幾下，版本資訊不會馬上消失')
   await shot('02b-version')
   await page.getByRole('button', { name: '關閉' }).click()
 

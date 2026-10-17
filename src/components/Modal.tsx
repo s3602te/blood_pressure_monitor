@@ -5,11 +5,13 @@ interface ModalProps {
   labelledBy: string
   /** 寬版：內容比較多時用（歷史頁的修改視窗），內容太長可以捲動 */
   wide?: boolean
+  /** 點視窗外面的灰色背景會不會關閉（預設會）。連點會用到的視窗要關掉，免得多按一下就消失 */
+  dismissOnBackdrop?: boolean
   children: ReactNode
 }
 
 /** 畫面正中央的視窗：點背景或按 Esc 可以關閉 */
-export function Modal({ onClose, labelledBy, wide, children }: ModalProps) {
+export function Modal({ onClose, labelledBy, wide, dismissOnBackdrop = true, children }: ModalProps) {
   useEffect(() => {
     const onKey = (e: KeyboardEvent) => {
       if (e.key === 'Escape') onClose()
@@ -22,7 +24,7 @@ export function Modal({ onClose, labelledBy, wide, children }: ModalProps) {
     <div
       className="fixed inset-0 z-10 flex items-center justify-center bg-ink/55 p-6"
       onClick={(e) => {
-        if (e.target === e.currentTarget) onClose()
+        if (dismissOnBackdrop && e.target === e.currentTarget) onClose()
       }}
     >
       <div

@@ -19,7 +19,7 @@ async function reloadLatest() {
 export function VersionDialog({ username, onClose }: { username: string; onClose: () => void }) {
   const [busy, setBusy] = useState(false)
   return (
-    <Modal onClose={onClose} labelledBy="versionTitle">
+    <Modal onClose={onClose} labelledBy="versionTitle" dismissOnBackdrop={false}>
       <h2 id="versionTitle" className="text-[1.625rem] leading-tight font-black">
         版本資訊
       </h2>
