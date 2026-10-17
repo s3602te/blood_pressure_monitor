@@ -67,6 +67,8 @@ apps-script/Code.gs   後端
 npm install          # 第一次
 npm run dev          # 開發模式（改了程式畫面馬上更新）→ http://localhost:5173/blood_pressure_monitor/
 npm test             # 單元測試
+npm run test:backend # 後端 Code.gs 的模擬測試（改了 Code.gs 一定要跑）
+npm run test:all     # 型別檢查 + 單元測試 + 後端模擬測試
 npm run build        # 建置（會先做型別檢查）
 npm run preview      # 預覽建置好的版本
 node e2e/e2e.mjs     # 瀏覽器完整實測（先 npm run build；需要 Edge，截圖存到 e2e/shots/）

@@ -17,6 +17,7 @@ secrets/
 # ── 一般雜項 ────────────────────────────────────────────
 tesl
 node_modules/
+CLAUDE.local.md
 dist/
 e2e/shots/
 *.log

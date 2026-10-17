@@ -8,7 +8,9 @@
     "build": "tsc --noEmit && vite build",
     "preview": "vite preview",
     "test": "vitest run",
-    "typecheck": "tsc --noEmit"
+    "typecheck": "tsc --noEmit",
+    "test:backend": "node apps-script/tests/code-gs.test.cjs && node apps-script/tests/code-gs-accounts.test.cjs",
+    "test:all": "npm run typecheck && npm test && npm run test:backend"
   },
   "dependencies": {
     "@tanstack/react-query": "^5.104.3",

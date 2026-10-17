@@ -56,6 +56,8 @@ export default defineConfig({
   test: {
     environment: 'jsdom',
     globals: true,
+    // 只跑網站的單元測試；apps-script/tests 是另外用 node 跑的後端模擬測試（npm run test:backend）
+    include: ['src/**/*.test.{ts,tsx}'],
     setupFiles: './src/test/setup.ts',
     css: false,
   },

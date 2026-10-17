@@ -38,6 +38,9 @@ jobs:
       - name: 單元測試
         run: npm test
 
+      - name: 後端（Code.gs）模擬測試
+        run: npm run test:backend
+
       - name: 建置
         run: npm run build
 
