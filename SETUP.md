@@ -31,6 +31,12 @@ GitHub Actions：push 到 main → 型別檢查 → 單元測試 → 建置 → 
 
 不用再手動管理版本號或快取：每次建置，檔名都會自動帶上內容編碼，舊檔案不會混進來。
 
+### 自動檢查（GitHub Actions）與 Dependabot
+
+- 每次 push，GitHub 會自動：型別檢查 → 單元測試 → 建置，另外用真的 Chrome 把網站完整操作一輪（`e2e`，約 1 分鐘）。`main` 分支測試通過就會自動發佈。
+- `e2e` 失敗時 Actions 頁面會顯示紅色叉叉，並留下截圖（頁面下方 Artifacts → `e2e-shots`）；它**不會擋住發佈**，但看到紅色叉叉就請告訴 Claude。
+- **Dependabot**（`.github/dependabot.yml`）：每個月自動檢查套件有沒有小更新，有的話開一個 Pull Request。看到綠色勾勾就按「Merge pull request」，網站會自動更新（合併後請在手機上打開確認）；紅色叉叉先不要合併，把網址貼給 Claude。大版本更新不會自動提，需要時手動處理。
+
 ### 專案結構
 
 ```
