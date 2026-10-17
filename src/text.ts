@@ -182,6 +182,7 @@ export const T = {
     title: '我的蓋章卡',
     streak: (n: number) => `連續 ${n} 天`,
     today: '今天',
+    toggleAria: (open: boolean, n: number) => (open ? '收起蓋章卡' : `連續 ${n} 天，點一下展開蓋章卡`),
     stampedAria: (label: string) => `${label} 已蓋章`,
     emptyAria: (label: string) => `${label} 還沒蓋章`,
     starAria: '早上和晚上都量了，多一顆星',
@@ -406,8 +407,8 @@ export const T = {
         title: '三、記錄血壓',
         items: [
           { id: 'save-ok', text: '輸入 120 / 80、脈搏 70，選「有吃」，按「儲存紀錄」', expect: '出現「已儲存」，約 4 秒自動關閉，上方對應的「早上」或「晚上」變綠色打勾' },
-          { id: 'stamp-card', text: '看記錄頁上方的「我的蓋章卡」', expect: '有 7 個圓圈（最後一個是今天）；有記錄的那天蓋了章，今天的圈圈有外框' },
-          { id: 'stamp-save', text: '今天第一次儲存血壓後', expect: '「已儲存」視窗裡多一句「蓋章完成！連續 N 天」，蓋章卡上今天的圈圈變成蓋好的章' },
+          { id: 'stamp-card', text: '看記錄頁上方的「我的蓋章卡」', expect: '平常是一條很窄的橫條：7 個小圓圈（最右邊是今天）和「連續 N 天」；點一下展開完整的蓋章卡，再點一下收起來。每次重新打開都是收起來的' },
+          { id: 'stamp-save', text: '今天第一次儲存血壓後', expect: '「已儲存」視窗裡出現一排小圓圈，今天那一格像剛蓋上去，並多一句「蓋章完成！連續 N 天」；關掉視窗後蓋章條上今天的圈圈也蓋好了' },
           { id: 'order-warning', text: '輸入收縮壓 80、舒張壓 120（故意填反）', expect: '輸入的當下就出現紅字提醒，按儲存也不會送出' },
           { id: 'advice-high', text: '輸入 150 / 92 後儲存', expect: '跳出橘色「這次偏高」提醒，要按「好」才會關' },
           { id: 'advice-veryhigh', text: '輸入 185 / 115 後儲存', expect: '跳出紅色「數值很高」提醒，有提到 119' },

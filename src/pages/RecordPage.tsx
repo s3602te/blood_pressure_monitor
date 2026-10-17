@@ -6,7 +6,7 @@ import { flushPending } from '../lib/pending'
 import { pendingQueue } from '../lib/storage'
 import { bpAdvice } from '../lib/advice'
 import { bpOrderWrong } from '../lib/validate'
-import { stampMessage, type StampItem } from '../lib/stamps'
+import { stampCard, stampMessage, type StampItem } from '../lib/stamps'
 import { StampCard } from '../components/StampCard'
 import { dateText, todayStatus, WEEKDAYS } from '../lib/records'
 import { MED_OPTIONS, type NewRecord } from '../lib/types'
@@ -138,6 +138,7 @@ export default function RecordPage() {
         kind: advice ? (advice.level === 'veryHigh' ? 'urgent' : 'care') : 'warn',
         title: advice ? T.record.queuedWithAdvice(advice.title) : T.record.queuedTitle,
         detail: [saved, stamp.join('\n'), advice?.text].filter(Boolean).join('\n\n'),
+        stamps: stamp.length ? stampCard([...stampItems, { date: params.date, at: Date.now() }], new Date()).week : undefined,
       })
       resetForm()
       return
@@ -160,6 +161,7 @@ export default function RecordPage() {
         kind: advice ? (advice.level === 'veryHigh' ? 'urgent' : 'care') : 'ok',
         title: advice ? T.record.savedWithAdvice(advice.title) : T.record.savedTitle,
         detail: [saved, stamp.join('\n'), advice?.text].filter(Boolean).join('\n\n'),
+        stamps: stamp.length ? stampCard([...stampItems, { date: params.date, at: Date.now() }], new Date()).week : undefined,
       })
     }
     resetForm()

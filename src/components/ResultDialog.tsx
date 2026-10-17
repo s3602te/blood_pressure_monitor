@@ -1,6 +1,8 @@
 import { useEffect } from 'react'
 import { T } from '../text'
+import type { StampDay } from '../lib/stamps'
 import { btnPrimary } from '../ui'
+import { MiniDots } from './StampCard'
 import { Modal } from './Modal'
 
 export interface ResultInfo {
@@ -8,6 +10,8 @@ export interface ResultInfo {
   kind: 'ok' | 'error' | 'warn' | 'care' | 'urgent'
   title: string
   detail?: string
+  /** 蓋章了的話，視窗裡顯示最近 7 天的小圓點，今天那格像剛蓋上去 */
+  stamps?: StampDay[]
 }
 
 const ICON = {
@@ -38,6 +42,11 @@ export function ResultDialog({ result, onClose }: { result: ResultInfo; onClose:
       <h2 id="resultTitle" className="text-[1.625rem] leading-tight font-black">
         {result.title}
       </h2>
+      {result.stamps && (
+        <div className="mt-3 flex justify-center">
+          <MiniDots days={result.stamps} size="md" animateToday dataPrefix="data-dialog" />
+        </div>
+      )}
       {result.detail && <p className="mt-2 break-words whitespace-pre-line text-muted">{result.detail}</p>}
       <button type="button" className={`${btnPrimary} mt-[22px]`} onClick={onClose} autoFocus>
         {T.common.ok}

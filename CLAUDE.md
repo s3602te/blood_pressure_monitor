@@ -38,7 +38,7 @@ node e2e/e2e.mjs       # 瀏覽器完整實測，要先 npm run build
 - 歷史頁每天合併成一筆（`aggregateByDate`，血壓取平均，並保留每筆原始紀錄給修改視窗用）；給醫師看是一次量測一列、最新在上（`buildReport`、`reportToCsv`）。
 - 「早上／晚上」由**建立時間**推算：凌晨 4 點到中午 12 點前是早上，其餘晚上（沒有建立時間的舊資料先算早上）。後端 `accountsMissing_`（Discord 提醒）用同一條規則。
 - 圖表可切「早晚一起／只看早上／只看晚上」：`filterBySlot`（`records.ts`）依時段重算每天的點，歷史頁與給醫師看共用 `ChartPanel` ＋ `ChartModeSwitch`；收縮壓必須大於舒張壓（`lib/validate.ts` 前端即時檢查，`parseRecord_` 後端再擋）。連點版本資訊進得去 `#/checklist`（真機驗收單，內容在 `T.checklist`，勾選結果存在手機 localStorage）。
-- 連續簽到／蓋章（`lib/stamps.ts` ＋ `components/StampCard.tsx`）：只看「哪幾天有記錄」，全部在前端用已載入的紀錄（加上暫存在手機、還沒上傳的）算，不碰後端；日期相減一律用 UTC 日期，避免夏令時間與月底出錯。
+- 連續簽到／蓋章（`lib/stamps.ts` ＋ `components/StampCard.tsx`）：只看「哪幾天有記錄」，全部在前端用已載入的紀錄（加上暫存在手機、還沒上傳的）算，不碰後端；`StampCard` 預設縮成一條、點開才展開（輸入血壓是主要任務，不要讓獎勵擋住輸入欄），儲存視窗裡用 `MiniDots`；日期相減一律用 UTC 日期，避免夏令時間與月底出錯。
 - 偏高門檻 135/85（`HIGH_SYS/HIGH_DIA`）；儲存後提醒門檻在 `src/lib/advice.ts`（很高 180/110、偏低 90/60，收縮／舒張任一個到就算）。
 
 **文字集中**：畫面上所有文字都在 `src/text.ts`（使用者會自己改字，檔頭有說明）。新增文字請加到這裡，不要寫死在元件裡。例外：「有吃／沒吃」是**資料值**（`MED_YES`/`MED_NO` 在 `src/lib/types.ts`，後端也比對），不能改；PWA 名稱在 `vite.config.ts`；後端訊息與 Discord 文字在 `Code.gs`。
