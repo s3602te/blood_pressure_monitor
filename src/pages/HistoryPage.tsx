@@ -2,8 +2,10 @@ import { useEffect, useMemo, useState } from 'react'
 import { Link } from 'react-router-dom'
 import { ChartPanel } from '../components/ChartPanel'
 import { DayDialog } from '../components/DayDialog'
+import { UndoToast } from '../components/UndoToast'
 import { usePageTitle, useRecords, useRefreshRecords } from '../hooks/hooks'
 import { aggregateByDate, average, HIGH_DIA, HIGH_SYS } from '../lib/records'
+import type { BpRecord } from '../lib/types'
 import { btnPrimary, btnQuiet, card, hiMark, input, linkBtn, pageTitle } from '../ui'
 
 const PER_PAGE = 7
@@ -16,6 +18,7 @@ export default function HistoryPage() {
 
   const [page, setPage] = useState(1) // 第 1 頁 = 最新的 7 天
   const [openIso, setOpenIso] = useState<string | null>(null) // 打開「修改」視窗的那一天
+  const [deleted, setDeleted] = useState<BpRecord | null>(null) // 剛刪除的那一筆（15 秒內可以復原）
 
   const totalPages = Math.max(1, Math.ceil(days.length / PER_PAGE))
   const current = Math.min(page, totalPages)
@@ -153,7 +156,10 @@ export default function HistoryPage() {
         </>
       )}
 
-      {openDay && <DayDialog day={openDay} onChanged={refresh} onClose={() => setOpenIso(null)} />}
+      {openDay && (
+        <DayDialog day={openDay} onChanged={refresh} onDeleted={setDeleted} onClose={() => setOpenIso(null)} />
+      )}
+      {deleted && <UndoToast key={deleted.at + '-' + deleted.row} record={deleted} onRestored={refresh} onDismiss={() => setDeleted(null)} />}
     </>
   )
 }

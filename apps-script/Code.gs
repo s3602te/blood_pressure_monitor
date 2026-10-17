@@ -25,6 +25,8 @@ const MAX_ADMIN_FAILS = 5;    // 管理密碼連續輸錯幾次就暫停
 const MIN_PASSWORD = 4;       // 密碼最短字元數（4 碼可以放生日）
 const LOCK_SECONDS = 600;     // 暫停時間（秒）
 const DUPLICATE_SECONDS = 5;  // 幾秒內完全相同的送出視為重複
+const BACKUP_FOLDER = '血壓記錄備份'; // 備份存放的資料夾（和試算表放在同一個地方）
+const BACKUP_KEEP = 8;        // 保留最近幾份備份，更舊的自動丟進垃圾桶（每週一份＝約 2 個月）
 const REQUEST_ID_SECONDS = 21600; // 同一次填寫編號的記憶時間（6 小時，已是快取允許的最長時間）
 const SITE_URL = 'https://s3602te.github.io/blood_pressure_monitor/';
 
@@ -169,13 +171,13 @@ function parseRecord_(p) {
   return { date: date, systolic: systolic, diastolic: diastolic, pulse: pulse, medication: medication, notes: notes };
 }
 
-// 手機沒訊號時資料會先暫存，補送時帶上當初按下儲存的時間，這樣早上／晚上的判斷才不會錯。
-// 只接受「過去 14 天內、不是未來」的時間，其餘一律用伺服器現在的時間。
+// 手機沒訊號時資料會先暫存，補送時帶上當初按下儲存的時間；刪除後按「復原」也會帶回原本的時間，
+// 這樣早上／晚上的判斷才不會錯。只接受「過去 3 年內、不是未來」的時間，其餘一律用伺服器現在的時間。
 function validClientTime_(value) {
   const n = Number(value);
   if (!n) return null;
   const now = Date.now();
-  if (n > now + 300000 || n < now - 14 * 86400000) return null;
+  if (n > now + 300000 || n < now - 1100 * 86400000) return null;
   return new Date(n);
 }
 
@@ -348,6 +350,48 @@ function setupTriggers() {
     ScriptApp.newTrigger('sendDiscordReminder')
       .timeBased().everyDays(1).atHour(hm[0]).nearMinute(hm[1]).create();
   });
+}
+
+/* ───────────── 每週自動備份 ───────────── */
+
+// 把整份試算表複製一份，存在「血壓記錄備份」資料夾。只保留最近 BACKUP_KEEP 份。
+// 試算表只有文字和數字，一份大約只有幾百 KB，8 份加起來也遠小於 Google 雲端硬碟的免費空間。
+function backupSpreadsheet() {
+  try {
+    const file = DriveApp.getFileById(spreadsheet_().getId());
+    const parents = file.getParents();
+    const parent = parents.hasNext() ? parents.next() : DriveApp.getRootFolder();
+    const folders = parent.getFoldersByName(BACKUP_FOLDER);
+    const folder = folders.hasNext() ? folders.next() : parent.createFolder(BACKUP_FOLDER);
+
+    const name = '血壓備份 ' + Utilities.formatDate(new Date(), sheetTz_(), 'yyyy-MM-dd');
+    const same = folder.getFilesByName(name); // 同一天重跑，只留最新的一份
+    while (same.hasNext()) same.next().setTrashed(true);
+    file.makeCopy(name, folder);
+
+    const backups = [];
+    const all = folder.getFiles();
+    while (all.hasNext()) {
+      const f = all.next();
+      if (f.getName().indexOf('血壓備份 ') === 0) backups.push(f);
+    }
+    backups.sort(function (a, b) { return b.getDateCreated().getTime() - a.getDateCreated().getTime(); });
+    backups.slice(BACKUP_KEEP).forEach(function (f) { f.setTrashed(true); });
+    Logger.log('已備份：' + name + '（目前保留 ' + Math.min(backups.length, BACKUP_KEEP) + ' 份）');
+  } catch (err) {
+    Logger.log('備份失敗: ' + err);
+    notifyDiscord_('⚠️ 血壓記錄的每週自動備份失敗了：' + err);
+    throw err;
+  }
+}
+
+// 執行一次即可：設定每週日凌晨 3 點自動備份，並且馬上備份一次（第一次執行 Google 會要你授權存取雲端硬碟）。
+function setupBackup() {
+  ScriptApp.getProjectTriggers().forEach(function (t) {
+    if (t.getHandlerFunction() === 'backupSpreadsheet') ScriptApp.deleteTrigger(t);
+  });
+  ScriptApp.newTrigger('backupSpreadsheet').timeBased().onWeekDay(ScriptApp.WeekDay.SUNDAY).atHour(3).create();
+  backupSpreadsheet();
 }
 
 /* ───────────── 管理者工具 ───────────── */

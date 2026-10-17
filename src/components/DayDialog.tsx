@@ -9,6 +9,8 @@ interface Props {
   day: DayAgg
   /** 修改或刪除成功後，重新抓最新紀錄 */
   onChanged: () => Promise<unknown>
+  /** 刪除成功（讓畫面可以出現「復原」） */
+  onDeleted: (record: BpRecord) => void
   onClose: () => void
 }
 
@@ -21,7 +23,7 @@ function timeText(r: BpRecord) {
 }
 
 /** 點歷史頁某一天的「修改」會打開這個視窗：列出那天的每一筆，可以逐筆修改或刪除 */
-export function DayDialog({ day, onChanged, onClose }: Props) {
+export function DayDialog({ day, onChanged, onDeleted, onClose }: Props) {
   const [editing, setEditing] = useState<number | null>(null) // 正在修改的列號
   const [busy, setBusy] = useState(false)
   const [error, setError] = useState('')
@@ -41,6 +43,7 @@ export function DayDialog({ day, onChanged, onClose }: Props) {
     setBusy(false)
     if (handleAuthError(result)) return
     if (!result.ok) return fail(result)
+    onDeleted(r)
     await onChanged()
   }
 
