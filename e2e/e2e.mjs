@@ -1,5 +1,6 @@
 // 瀏覽器實測：用真的 Edge 開「建置好的網站」，後端用假的（不會動到真的試算表）。
 // 執行方式：npm run build && node e2e/e2e.mjs
+// 瀏覽器路徑預設是 Windows 的 Edge；在別的環境用 BROWSER_PATH 指定（GitHub 上用 Chrome）。
 // 截圖會存到 e2e/shots/（已列入 .gitignore）。
 import { chromium } from 'playwright-core'
 import { spawn } from 'node:child_process'
@@ -100,7 +101,7 @@ async function waitServer() {
 let browser
 try {
   await waitServer()
-  browser = await chromium.launch({ executablePath: EDGE, headless: true })
+  browser = await chromium.launch({ executablePath: EDGE, headless: true, args: process.env.CI ? ['--no-sandbox'] : [] })
   const context = await browser.newContext({ viewport: { width: 390, height: 844 }, deviceScaleFactor: 2, locale: 'zh-TW', timezoneId: 'Asia/Taipei' })
   await context.route('https://script.google.com/**', async (route) => {
     if (!online) return route.abort('failed')
@@ -392,7 +393,7 @@ try {
 } finally {
   await browser?.close()
   server.kill()
-  spawn('taskkill', ['/pid', String(server.pid), '/T', '/F'], { stdio: 'ignore' })
+  if (process.platform === 'win32') spawn('taskkill', ['/pid', String(server.pid), '/T', '/F'], { stdio: 'ignore' })
 }
 console.log(fails ? `有 ${fails} 項失敗` : '全部通過')
 process.exit(fails ? 1 : 0)

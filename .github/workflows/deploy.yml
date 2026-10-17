@@ -2,6 +2,8 @@ name: 建置並發佈到 GitHub Pages
 
 # push 到 main 就會自動：測試 → 建置 → 發佈（約 1～2 分鐘）。
 # 其他分支、Pull Request 只會跑測試與建置，確認沒壞，不會發佈。
+# 另外有一個「瀏覽器完整實測」（e2e）：用真的 Chrome 把網站操作一輪。它單獨跑，
+# 失敗時會在 Actions 頁面顯示紅色叉叉並留下截圖，但不會擋住發佈（避免 CI 環境的小狀況讓你上不了線）。
 on:
   push:
   pull_request:
@@ -12,9 +14,9 @@ permissions:
   pages: write
   id-token: write
 
-# 連續 push 時，只保留最新一次發佈
+# 同一個分支連續 push 時，只保留最新一次（不同分支不會互相取消）
 concurrency:
-  group: pages
+  group: ${{ github.workflow }}-${{ github.ref }}
   cancel-in-progress: true
 
 jobs:
@@ -47,6 +49,36 @@ jobs:
       - uses: actions/upload-pages-artifact@v3
         with:
           path: dist
+
+  e2e:
+    name: 瀏覽器完整實測
+    runs-on: ubuntu-latest
+    env:
+      CI: 'true'
+      TZ: Asia/Taipei # 網站用台北時間判斷早上／晚上，測試資料也要用同一個時區
+      BROWSER_PATH: /usr/bin/google-chrome
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+
+      - run: npm ci
+
+      - name: 建置
+        run: npm run build
+
+      - name: 瀏覽器完整實測
+        run: node e2e/e2e.mjs
+
+      # 失敗時把截圖留下來（Actions 頁面下方「Artifacts」可以下載）
+      - uses: actions/upload-artifact@v4
+        if: failure()
+        with:
+          name: e2e-shots
+          path: e2e/shots
 
   deploy:
     # 只有 main 分支才會真的發佈

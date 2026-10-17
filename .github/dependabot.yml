@@ -1,0 +1,39 @@
+# Dependabot：每個月自動檢查「網站用到的套件」和「GitHub Actions」有沒有新版本。
+# 有的話會開一個 Pull Request（把所有小更新合併成一個）。GitHub 會自動跑測試：
+#   綠色勾勾 → 按「Merge pull request」，網站就會自動更新；
+#   紅色叉叉 → 先不要合併，把網址貼給 Claude 處理。
+# 大版本更新（例如 React 20 → 21）可能會改壞東西，所以這裡先不自動提，需要時再手動處理。
+# 有安全漏洞的套件，GitHub 會另外提醒，不受這裡的設定影響。
+version: 2
+updates:
+  - package-ecosystem: npm
+    directory: /
+    schedule:
+      interval: monthly
+    open-pull-requests-limit: 2
+    commit-message:
+      prefix: 套件更新
+    groups:
+      all-packages:
+        patterns:
+          - '*'
+    ignore:
+      - dependency-name: '*'
+        update-types:
+          - version-update:semver-major
+
+  - package-ecosystem: github-actions
+    directory: /
+    schedule:
+      interval: monthly
+    open-pull-requests-limit: 1
+    commit-message:
+      prefix: 套件更新
+    groups:
+      github-actions:
+        patterns:
+          - '*'
+    ignore:
+      - dependency-name: '*'
+        update-types:
+          - version-update:semver-major
