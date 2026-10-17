@@ -120,6 +120,15 @@ try {
   await page.getByRole('heading', { name: '記錄今天的血壓' }).waitFor()
   check(true, '登入後到記錄頁')
   await shot('02-record')
+  check(!(await page.getByText(/版本/).count()), '頁面上平常看不到版本字樣')
+  const brand = page.getByText('血壓記錄', { exact: true }).first()
+  for (let i = 0; i < 4; i++) await brand.click()
+  check(!(await page.getByRole('dialog').count()), '點 4 下不會出現版本資訊')
+  await brand.click()
+  await page.getByRole('heading', { name: '版本資訊' }).waitFor()
+  check(await page.getByText('建置時間').isVisible(), '連點 5 下出現版本資訊')
+  await shot('02b-version')
+  await page.getByRole('button', { name: '關閉' }).click()
 
   // 3. 記錄血壓
   await page.locator('#systolic').fill('121')

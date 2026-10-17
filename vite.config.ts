@@ -5,8 +5,13 @@ import { VitePWA } from 'vite-plugin-pwa'
 
 // GitHub Pages 的網址是 https://s3602te.github.io/blood_pressure_monitor/，所以 base 要設成 repo 名稱
 export default defineConfig({
-  // 這次建置的版本標記（GitHub Actions 上是這次的 commit 編號），顯示在頁面最底下
-  define: { __APP_VERSION__: JSON.stringify(process.env.GITHUB_SHA?.slice(0, 7) ?? 'dev') },
+  // 這次建置的版本標記（GitHub Actions 上是這次的 commit 編號）與時間，連點畫面左上角「血壓記錄」5 下可以看到
+  define: {
+    __APP_VERSION__: JSON.stringify(process.env.GITHUB_SHA?.slice(0, 7) ?? 'dev'),
+    __BUILD_TIME__: JSON.stringify(
+      new Date().toLocaleString('zh-TW', { timeZone: 'Asia/Taipei', hour12: false, dateStyle: 'short', timeStyle: 'short' }),
+    ),
+  },
   base: '/blood_pressure_monitor/',
   plugins: [
     react(),

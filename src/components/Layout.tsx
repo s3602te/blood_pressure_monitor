@@ -1,5 +1,6 @@
-import { Suspense } from 'react'
+import { Suspense, useRef, useState } from 'react'
 import { NavLink, Navigate, Outlet } from 'react-router-dom'
+import { VersionDialog } from './VersionDialog'
 import { logout } from '../lib/api'
 import { fontSize } from '../lib/storage'
 import { useLargeFont, useSession } from '../hooks/hooks'
@@ -15,7 +16,18 @@ const NAV = [
 export function Layout() {
   const session = useSession()
   const large = useLargeFont()
+  const [showVersion, setShowVersion] = useState(false)
+  const taps = useRef<number[]>([])
   if (!session) return <Navigate to="/login" replace />
+
+  const tapBrand = () => {
+    const now = Date.now()
+    taps.current = [...taps.current.filter((t) => now - t < 3000), now]
+    if (taps.current.length >= 5) {
+      taps.current = []
+      setShowVersion(true)
+    }
+  }
 
   const askLogout = () => {
     if (confirm('確定要登出嗎？\n登出後要重新輸入帳號和密碼。')) void logout()
@@ -25,7 +37,10 @@ export function Layout() {
     <>
       <header className="border-b border-line bg-card print:hidden">
         <div className={`${wrap} flex min-h-14 flex-wrap items-center justify-between gap-x-3`}>
-          <span className="text-xl font-black">血壓記錄</span>
+          {/* 連點 5 下（3 秒內）會彈出版本資訊，給管理者查看；長輩平常不會注意到 */}
+          <span className="text-xl font-black select-none" onClick={tapBrand}>
+            血壓記錄
+          </span>
           <div className="flex items-center gap-3 text-base text-muted">
             <span>{session.displayName || session.username}</span>
             <button type="button" className={linkBtn} onClick={() => fontSize.set(!large)}>
@@ -42,8 +57,9 @@ export function Layout() {
         <Suspense fallback={<p className="mt-6 text-muted">讀取中…</p>}>
           <Outlet />
         </Suspense>
-        <p className="mt-7 text-center text-[0.8125rem] text-muted print:hidden">版本 {__APP_VERSION__}</p>
       </main>
+
+      {showVersion && <VersionDialog username={session.username} onClose={() => setShowVersion(false)} />}
 
       <nav
         aria-label="主要頁面"
