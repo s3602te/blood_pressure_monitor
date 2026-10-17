@@ -49,7 +49,7 @@ export function VersionDialog({ username, onClose }: { username: string; onClose
         {busy ? '重新載入中…' : '清除快取並重新載入'}
       </button>
       <button type="button" className={`${btnQuiet} mt-3`} onClick={() => navigate('/admin')}>
-        管理員頁面（需要管理密碼）
+        管理員頁面
       </button>
       <button type="button" className={`${btnPrimary} mt-3`} onClick={onClose}>
         關閉

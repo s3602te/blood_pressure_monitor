@@ -12,7 +12,7 @@ const NAV = [
   { to: '/doctor', label: '給醫師看' },
 ]
 
-/** 登入後的共用外框：頂欄（名字、放大字、登出）＋底部分頁列。沒登入就回登入頁。 */
+/** 登入後的共用外框：頂欄（名字、放大、登出）＋底部分頁列。沒登入就回登入頁。 */
 export function Layout() {
   const session = useSession()
   const large = useLargeFont()
@@ -49,12 +49,12 @@ export function Layout() {
               type="button"
               className={`${linkBtn} rounded-lg ${showHint && !large ? 'animate-hint' : ''}`}
               onClick={() => {
-                fontHint.dismiss() // 按過放大字，就不用再提示了
+                fontHint.dismiss() // 按過放大，就不用再提示了
                 setShowHint(false)
                 fontSize.set(!large)
               }}
             >
-              {large ? '標準字' : '放大字'}
+              {large ? '縮小' : '放大'}
             </button>
             <button type="button" className={linkBtn} onClick={askLogout}>
               登出
@@ -72,7 +72,7 @@ export function Layout() {
           )}
           {showHint && !large && (
             <div role="note" className="animate-hint mt-3 flex items-center gap-3 rounded-xl bg-ok-bg px-4 py-3 text-ok">
-              <p className="flex-1 text-lg font-black">點右上角「放大字」，字會變大</p>
+              <p className="flex-1 text-lg font-black">點右上角「放大」，字會變大</p>
               <button
                 type="button"
                 className="min-h-11 shrink-0 cursor-pointer rounded-xl border-2 border-teal bg-card px-3 font-bold text-teal-deep"

@@ -147,12 +147,12 @@ export const pendingQueue = {
   },
 }
 
-/* ───────────── 「放大字」的第一次提示 ───────────── */
+/* ───────────── 「放大」的第一次提示 ───────────── */
 
 const HINT_KEY = 'bp_font_hint'
 
 export const fontHint = {
-  /** 已經看過（或按過放大字）就不再顯示 */
+  /** 已經看過（或按過放大）就不再顯示 */
   seen(): boolean {
     try {
       return localStorage.getItem(HINT_KEY) === '1'

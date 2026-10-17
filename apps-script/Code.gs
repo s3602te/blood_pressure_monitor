@@ -27,7 +27,7 @@ const MIN_PASSWORD = 4;       // 密碼最短字元數（4 碼可以放生日）
 const LOCK_SECONDS = 600;     // 暫停時間（秒）
 const DUPLICATE_SECONDS = 5;  // 幾秒內完全相同的送出視為重複
 const BACKUP_FOLDER = '血壓記錄備份'; // 備份存放的資料夾（和試算表放在同一個地方）
-const BACKUP_KEEP = 8;        // 保留最近幾份備份，更舊的自動丟進垃圾桶（每週一份＝約 2 個月，不會越積越多）
+const BACKUP_KEEP = 2;        // 保留最近幾份備份，更舊的自動丟進垃圾桶（每週一份＝約 2 週）。份數少，試算表首頁才不會被備份檔塞滿
 const REQUEST_ID_SECONDS = 21600; // 同一次填寫編號的記憶時間（6 小時，已是快取允許的最長時間）
 const SITE_URL = 'https://s3602te.github.io/blood_pressure_monitor/';
 
@@ -358,8 +358,9 @@ function setupTriggers() {
 /* ───────────── 每週自動備份 ───────────── */
 
 // 把整份試算表匯出成一個 Excel 檔（.xlsx），存在「血壓記錄備份」資料夾。只保留最近 BACKUP_KEEP 份。
-// 為什麼用 .xlsx 而不是再複製一份 Google 試算表：Google 試算表首頁會把所有「試算表」都列出來，
-// 備份一多就很亂；.xlsx 只會出現在雲端硬碟的資料夾裡，不會出現在試算表首頁。
+// 為什麼用 .xlsx：檔案是「匯出一份複本」，不是 Google 試算表，不會被當成另一份可編輯的正本。
+// 注意：在雲端硬碟打開 .xlsx 時，Google 試算表會直接開啟它，並把它列在試算表首頁的「最近」裡，
+// 所以只保留最近 BACKUP_KEEP 份，避免首頁被備份檔塞滿；用不到的備份可以手動從首頁「移除」。
 // 需要還原時，在雲端硬碟對 .xlsx 按右鍵 →「開啟方式」→「Google 試算表」就能看。
 // 檔案很小（只有文字和數字，一份大約幾百 KB），而且只留最近 BACKUP_KEEP 份，幾乎不佔空間。
 function backupSpreadsheet() {

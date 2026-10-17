@@ -121,12 +121,12 @@ try {
   check(true, '登入後到記錄頁')
   await shot('02-record')
   check(!(await page.getByText(/版本/).count()), '頁面上平常看不到版本字樣')
-  check(await page.getByText('點右上角「放大字」，字會變大').isVisible(), '第一次使用的提示很短：點右上角「放大字」，字會變大')
-  check((await page.getByRole('button', { name: '放大字' }).getAttribute('class')).includes('animate-hint'), '「放大字」按鈕會閃爍提示')
+  check(await page.getByText('點右上角「放大」，字會變大').isVisible(), '第一次使用的提示很短：點右上角「放大」，字會變大')
+  check((await page.getByRole('button', { name: '放大', exact: true }).getAttribute('class')).includes('animate-hint'), '「放大」按鈕會閃爍提示')
   await shot('02a-font-hint')
   await page.getByRole('button', { name: '知道了' }).click()
-  check(!(await page.getByText('點右上角「放大字」，字會變大').count()), '按「知道了」之後不再顯示提示')
-  check(!(await page.getByRole('button', { name: '放大字' }).getAttribute('class')).includes('animate-hint'), '提示消失後按鈕不再閃爍')
+  check(!(await page.getByText('點右上角「放大」，字會變大').count()), '按「知道了」之後不再顯示提示')
+  check(!(await page.getByRole('button', { name: '放大', exact: true }).getAttribute('class')).includes('animate-hint'), '提示消失後按鈕不再閃爍')
   check(await page.getByText('早上還沒記錄').isVisible() && await page.getByText('晚上還沒記錄').isVisible(), '今天還沒記錄：早上、晚上都沒有打勾')
   const brand = page.getByText('血壓記錄', { exact: true }).first()
   for (let i = 0; i < 4; i++) await brand.click()
@@ -213,14 +213,14 @@ try {
   await page.getByRole('button', { name: '好' }).click()
   check(!(await page.getByText('還沒上傳').isVisible()), '提醒消失')
 
-  // 5. 放大字體
+  // 5. 放大字體（按鈕「放大」／「縮小」）
   const fontPx = () => page.evaluate(() => getComputedStyle(document.body).fontSize)
   check((await fontPx()) === '18px', '預設字體 18px')
-  await page.getByRole('button', { name: '放大字' }).click()
+  await page.getByRole('button', { name: '放大', exact: true }).click()
   check((await fontPx()) === '22.5px', '放大後字體 22.5px')
   await shot('06-large-record')
-  await page.getByRole('button', { name: '標準字' }).click()
-  check((await fontPx()) === '18px', '可以回到標準字')
+  await page.getByRole('button', { name: '縮小', exact: true }).click()
+  check((await fontPx()) === '18px', '按「縮小」可以回到標準字')
 
   // 6. 歷史頁
   await page.getByRole('link', { name: '歷史紀錄' }).click()
@@ -257,10 +257,10 @@ try {
   check(rows.length === rowCount && !!back, '按「復原」把刪掉的那筆放回去，且保留原本的記錄時間')
   await page.keyboard.press('Escape')
   check(!(await page.getByRole('dialog').count()), 'Esc 可以關閉視窗')
-  await page.getByRole('button', { name: '放大字' }).click()
+  await page.getByRole('button', { name: '放大', exact: true }).click()
   await sleep(500)
   await shot('10-history-large')
-  await page.getByRole('button', { name: '標準字' }).click()
+  await page.getByRole('button', { name: '縮小', exact: true }).click()
 
   // 7. 給醫師看
   await page.getByRole('link', { name: '給醫師看' }).click()
