@@ -128,7 +128,7 @@ export interface AdminAccount {
 }
 
 export const adminList = (adminCode: string) =>
-  callApi<{ accounts: AdminAccount[]; groups?: string[] }>('adminList', { adminCode })
+  callApi<{ accounts: AdminAccount[]; groups?: string[]; groupColors?: Record<string, string> }>('adminList', { adminCode })
 
 export const adminDelete = (adminCode: string, username: string, deleteData: boolean) =>
   callApi('adminDelete', { adminCode, username, deleteData: String(deleteData) })

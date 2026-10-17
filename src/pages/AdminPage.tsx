@@ -13,6 +13,7 @@ export default function AdminPage() {
   const [adminCode, setAdminCode] = useState('')
   const [accounts, setAccounts] = useState<AdminAccount[] | null>(null)
   const [groups, setGroups] = useState<string[]>([])
+  const [groupColors, setGroupColors] = useState<Record<string, string>>({})
   const [groupFilter, setGroupFilter] = useState('')
   const [selected, setSelected] = useState('')
   const [newPassword, setNewPassword] = useState('')
@@ -33,6 +34,7 @@ export default function AdminPage() {
     }
     setAccounts(result.accounts)
     setGroups(result.groups ?? [])
+    setGroupColors(result.groupColors ?? {})
     setSelected(result.accounts[0]?.username ?? '')
     setStatus(result.accounts.length ? null : { text: T.admin.noAccounts, kind: 'info' })
   }
@@ -73,6 +75,7 @@ export default function AdminPage() {
           label={label}
           onDelete={setDeleting}
           groups={groups}
+          groupColors={groupColors}
           groupFilter={groupFilter}
           onGroupFilter={setGroupFilter}
         />
@@ -153,6 +156,7 @@ export default function AdminPage() {
             if (result.ok) {
               setAccounts(result.accounts)
               setGroups(result.groups ?? [])
+              setGroupColors(result.groupColors ?? {})
               setSelected(result.accounts[0]?.username ?? '')
             }
             setStatus({ text: T.admin.deleted(who), kind: 'ok' })
@@ -163,12 +167,16 @@ export default function AdminPage() {
   )
 }
 
-/** 誰多久沒用了：最後使用＝最近一次打開網站，最後記錄＝最近一次存血壓。很久沒記錄的用橘色、紅色標出來。 */
+/**
+ * 誰多久沒用了：最後使用＝最近一次打開網站，最後記錄＝最近一次存血壓。很久沒記錄的用橘色、紅色標出來。
+ * 有多個群組時，依群組分區排列（預設群組在最上面），每一群有自己的底色，和試算表下方分頁的顏色一致。
+ */
 function AccountStatus({
   accounts,
   label,
   onDelete,
   groups,
+  groupColors,
   groupFilter,
   onGroupFilter,
 }: {
@@ -176,19 +184,33 @@ function AccountStatus({
   label: (a: AdminAccount) => string
   onDelete: (a: AdminAccount) => void
   groups: string[]
+  groupColors: Record<string, string>
   groupFilter: string
   onGroupFilter: (group: string) => void
 }) {
-  const showGroup = groups.length > 1 // 只有一群的時候不用顯示群組
+  const showGroup = groups.length > 1 // 只有一群的時候不用分區
   const now = new Date()
-  // 最久沒記錄的排最前面
-  const sorted = [...accounts].sort((a, b) => a.lastRecord - b.lastRecord)
   const tone = (ms: number) => {
     const d = daysSince(ms, now)
     if (d === null || d >= 7) return 'font-black text-danger'
     if (d >= 3) return 'font-bold text-warn'
     return ''
   }
+
+  // 分區：預設群組在前，接著依 GROUPS 的順序；每一區裡面，最久沒記錄的排最前面
+  const sections = (showGroup ? [...groups, T.admin.groupOther] : ['']).map((name) => ({
+    name,
+    list: accounts
+      .filter((a) => (showGroup ? (groups.includes(a.group) ? a.group === name : name === T.admin.groupOther) : true))
+      .sort((a, b) => a.lastRecord - b.lastRecord),
+  }))
+
+  // 群組的顏色變成淡淡的底色（沒顏色的預設群組維持白色）
+  const tint = (name: string, strength: '1f' | '38') => {
+    const color = groupColors[name]
+    return color ? { backgroundColor: `${color}${strength}` } : undefined
+  }
+
   return (
     <section aria-label={T.admin.statusTitle} className="mt-6 rounded-card border border-line bg-card p-4">
       <h2 className="text-xl font-black">{T.admin.statusTitle}</h2>
@@ -215,35 +237,50 @@ function AccountStatus({
       <table className="mt-2 w-full border-collapse text-left">
         <thead>
           <tr className="text-[0.9375rem] font-medium text-muted">
-            <th className="border-b-2 border-line py-1.5 pr-2 font-medium">{T.admin.colAccount}</th>
+            <th className="border-b-2 border-line py-1.5 pr-2 pl-1 font-medium">{T.admin.colAccount}</th>
             <th className="border-b-2 border-line py-1.5 pr-2 font-medium">{T.admin.colLastSeen}</th>
             <th className="border-b-2 border-line py-1.5 font-medium">{T.admin.colLastRecord}</th>
           </tr>
         </thead>
-        <tbody>
-          {sorted.map((a) => (
-            <tr key={a.username}>
-              <td className="border-b border-line py-2.5 pr-2 align-top break-all">
-                {label(a)}
-                {showGroup && <span className="block text-sm font-normal text-muted">{a.group}</span>}
-                <button
-                  type="button"
-                  className={`${linkBtn} block py-1! text-[0.9375rem]! text-danger!`}
-                  onClick={() => onDelete(a)}
-                >
-                  {T.admin.delete}
-                </button>
-              </td>
-              <td className={`border-b border-line py-2.5 pr-2 align-top whitespace-nowrap ${tone(a.lastSeen)}`}>
-                {agoText(a.lastSeen, now)}
-              </td>
-              <td className={`border-b border-line py-2.5 align-top whitespace-nowrap ${tone(a.lastRecord)}`}>
-                {agoText(a.lastRecord, now)}
-                <span className="block text-sm font-normal text-muted">{T.admin.count(a.count)}</span>
-              </td>
-            </tr>
+        {sections
+          .filter((section) => section.list.length > 0)
+          .map((section) => (
+            <tbody key={section.name} data-group={section.name}>
+              {showGroup && (
+                <tr style={tint(section.name, '38')}>
+                  <th colSpan={3} className="px-1 py-2 text-left text-base font-black">
+                    <span
+                      aria-hidden="true"
+                      className="mr-2 inline-block size-3 rounded-full border border-ink/30 align-middle"
+                      style={{ backgroundColor: groupColors[section.name] || '#ffffff' }}
+                    />
+                    {T.admin.groupHeader(section.name, section.list.length)}
+                  </th>
+                </tr>
+              )}
+              {section.list.map((a) => (
+                <tr key={a.username} data-account={a.username} style={tint(section.name, '1f')}>
+                  <td className="border-b border-line py-2.5 pr-2 pl-1 align-top break-all">
+                    {label(a)}
+                    <button
+                      type="button"
+                      className={`${linkBtn} block py-1! text-[0.9375rem]! text-danger!`}
+                      onClick={() => onDelete(a)}
+                    >
+                      {T.admin.delete}
+                    </button>
+                  </td>
+                  <td className={`border-b border-line py-2.5 pr-2 align-top whitespace-nowrap ${tone(a.lastSeen)}`}>
+                    {agoText(a.lastSeen, now)}
+                  </td>
+                  <td className={`border-b border-line py-2.5 align-top whitespace-nowrap ${tone(a.lastRecord)}`}>
+                    {agoText(a.lastRecord, now)}
+                    <span className="block text-sm font-normal text-muted">{T.admin.count(a.count)}</span>
+                  </td>
+                </tr>
+              ))}
+            </tbody>
           ))}
-        </tbody>
       </table>
       <p className="mt-2 text-sm text-muted">{T.admin.statusNote}</p>
     </section>

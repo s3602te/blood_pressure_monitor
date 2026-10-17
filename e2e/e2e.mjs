@@ -67,7 +67,7 @@ function handle(p) {
       rows.forEach((x, k) => (x.row = k + 2))
       return ok()
     }
-    case 'adminList': return p.adminCode === 'boss' ? ok({ accounts: adminAccounts.map((a) => ({ ...a })), groups: ['家人', '小美家'] }) : { ok: false, error: '管理密碼不正確' }
+    case 'adminList': return p.adminCode === 'boss' ? ok({ accounts: adminAccounts.map((a) => ({ ...a })), groups: ['家人', '小美家'], groupColors: { 家人: '', 小美家: '#4285f4' } }) : { ok: false, error: '管理密碼不正確' }
     case 'adminDelete': {
       if (p.adminCode !== 'boss') return { ok: false, error: '管理密碼不正確' }
       const i = adminAccounts.findIndex((a) => a.username === p.username)
@@ -363,17 +363,22 @@ try {
   await page.getByRole('button', { name: '進入' }).click()
   await page.locator('#account').waitFor()
   check(await page.getByText('帳號使用狀況').isVisible() && await page.getByText('從來沒有').first().isVisible(), '管理頁顯示各帳號最後使用／最後記錄')
-  check(await page.locator('section[aria-label="帳號使用狀況"] tbody').getByText('小美家', { exact: true }).isVisible(), '管理頁：有多個群組時，每個帳號標示屬於哪一群')
+  check(await page.getByText('家人（2 人）').isVisible() && await page.getByText('小美家（1 人）').isVisible(), '管理頁：有多個群組時，依群組分區並標示人數')
+  const sectionOrder = await page.locator('section[aria-label="帳號使用狀況"] tbody').evaluateAll((els) => els.map((el) => el.getAttribute('data-group')))
+  check(sectionOrder.join(',') === '家人,小美家', '管理頁：預設群組排最上面，接著依群組順序')
+  const bg = (acct) => page.locator(`tr[data-account="${acct}"]`).evaluate((el) => getComputedStyle(el).backgroundColor)
+  check((await bg('amei')) !== (await bg('mom')) && /rgba?\(66, 133, 244/.test(await bg('amei')), '管理頁：小美家的底色是淡藍色，家人維持白色')
+  await shot('15b-admin-groups')
   await page.locator('#groupFilter').selectOption('小美家')
-  check((await page.locator('section[aria-label="帳號使用狀況"] tbody tr').count()) === 1, '管理頁：可以只看某一群')
+  check((await page.locator('tr[data-account]').count()) === 1, '管理頁：可以只看某一群')
   await page.locator('#groupFilter').selectOption('')
-  check((await page.locator('section[aria-label="帳號使用狀況"] tbody tr').count()) === 3, '管理頁：選「全部」回到所有人')
-  check((await page.locator('section[aria-label="帳號使用狀況"] tbody tr').first().innerText()).includes('dad'), '最久沒記錄的排在最前面')
+  check((await page.locator('tr[data-account]').count()) === 3, '管理頁：選「全部」回到所有人')
+  check((await page.locator('tr[data-account]').first().innerText()).includes('dad'), '同一群裡，最久沒記錄的排在最前面')
   await page.locator('#newPassword').fill('5678')
   await page.getByRole('button', { name: '重設密碼' }).click()
   await page.getByText(/新密碼是「5678」/).waitFor()
   check(true, '管理頁可重設密碼')
-  await page.locator('section[aria-label="帳號使用狀況"] tbody tr').first().getByRole('button', { name: '刪除帳號' }).click()
+  await page.locator('tr[data-account="dad"]').getByRole('button', { name: '刪除帳號' }).click()
   await page.getByRole('dialog').waitFor()
   await shot('15a-delete-dialog')
   const sureBtn = page.getByRole('button', { name: '確定刪除' })

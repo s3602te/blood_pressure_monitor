@@ -401,6 +401,8 @@ export const T = {
     colLastRecord: '最後記錄',
     count: (n: number) => `共 ${n} 筆`,
     statusNote: '橘色＝超過 3 天，紅色＝超過 7 天或從來沒有。最後使用從這次更新後才開始記錄。',
+    groupHeader: (name: string, n: number) => `${name}（${n} 人）`,
+    groupOther: '其他',
     groupFilter: '只看哪一群',
     groupAll: '全部',
     delete: '刪除帳號',

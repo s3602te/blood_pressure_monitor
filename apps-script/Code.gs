@@ -4,6 +4,7 @@
  * 機密設定請放在「專案設定 → 指令碼屬性」，不要寫進程式碼：
  *   REGISTER_CODE    註冊邀請碼（必填；沒設定就沒有人能註冊）。用這組邀請碼註冊的人屬於預設群組「家人」
  *   GROUPS           其他群組（選填）：每行一個「群組名稱=邀請碼」，也可以用分號隔開。例如 小美家=abc123
+ *                    每個群組可以在最後加「|#顏色碼」指定顏色，例如 小美家=abc123|#4285f4（沒指定就依順序自動配色）
  *   DEFAULT_GROUP_NAME  預設群組的名稱（選填，沒設定就叫「家人」）
  *   DISCORD_WEBHOOK_群組名稱  那個群組自己的 Discord 提醒頻道（選填，例如 DISCORD_WEBHOOK_小美家）；
  *                    其他群組沒設定就不發提醒，避免提醒跑到別人家的頻道。預設群組用 DISCORD_WEBHOOK
@@ -86,6 +87,10 @@ function defaultGroupName_() {
 }
 
 // 所有群組：預設群組（邀請碼 REGISTER_CODE）＋ GROUPS 裡設定的其他群組
+// 群組的顏色（試算表下方的分頁、管理頁的底色）。預設群組沒有顏色（白色）；
+// 其他群組依照在 GROUPS 裡的順序自動配色：藍、橘、綠、紫、紅…，也可以在 GROUPS 那一行最後加「|#顏色碼」指定。
+const GROUP_PALETTE = ['#4285f4', '#fb8c00', '#0f9d58', '#ab47bc', '#db4437', '#00acc1', '#ec407a'];
+
 function groupList_() {
   const list = [];
   const base = prop_('REGISTER_CODE');
@@ -94,10 +99,49 @@ function groupList_() {
     const i = line.indexOf('=');
     if (i < 1) return;
     const name = line.slice(0, i).trim();
-    const code = line.slice(i + 1).trim();
-    if (name && code) list.push({ name: name, code: code, isDefault: false });
+    const parts = line.slice(i + 1).split('|');
+    const code = parts[0].trim();
+    const custom = String(parts[1] || '').trim();
+    if (name && code) {
+      list.push({ name: name, code: code, isDefault: false, color: /^#[0-9a-fA-F]{6}$/.test(custom) ? custom : '' });
+    }
   });
   return list;
+}
+
+// 群組名稱 → 顏色（預設群組是空字串＝白色）
+function groupColors_() {
+  const map = {};
+  let n = 0;
+  groupList_().forEach(function (g) {
+    if (g.isDefault) {
+      map[g.name] = '';
+    } else {
+      map[g.name] = g.color || GROUP_PALETTE[n % GROUP_PALETTE.length];
+      n++;
+    }
+  });
+  return map;
+}
+
+// 讓每個人的資料分頁，顏色和他的群組一致（預設群組不上色）。只在顏色不一樣時才動，所以重複執行沒關係。
+function syncTabColors_() {
+  const ss = spreadsheet_();
+  const colors = groupColors_();
+  const rows = accountSheet_().getDataRange().getValues();
+  for (let i = 1; i < rows.length; i++) {
+    if (String(rows[i][0]) === '') continue;
+    const sheet = ss.getSheetByName(String(rows[i][2]));
+    if (!sheet) continue;
+    const want = colors[accountGroupName_(rows[i][GROUP_COLUMN - 1])] || '';
+    const have = String(sheet.getTabColor() || '');
+    if (have.toLowerCase() !== want.toLowerCase()) sheet.setTabColor(want || null);
+  }
+}
+
+// 手動執行用：在編輯器選 applyGroupColors 按「執行」，所有人的分頁馬上依群組上色（打開管理頁也會自動做）
+function applyGroupColors() {
+  syncTabColors_();
 }
 
 // 這個群組的 Discord 頻道：預設群組用 DISCORD_WEBHOOK；其他群組要自己設 DISCORD_WEBHOOK_群組名稱，沒設就不發
@@ -167,6 +211,9 @@ function register_(p) {
   appendAccountRow_(accounts, [username, displayName, sheetName, salt, hashPassword_(salt, password), new Date(), new Date(), group.isDefault ? '' : group.name]);
   ensureLastSeenHeader_(accounts);
   ensureGroupHeader_(accounts);
+  const groupColor = groupColors_()[group.name] || '';
+  const ownSheet = ss.getSheetByName(sheetName);
+  if (ownSheet && groupColor) ownSheet.setTabColor(groupColor);
 
   return { ok: true, token: issueToken_(username), username: username, displayName: displayName };
 }
@@ -542,6 +589,7 @@ function adminList_(p) {
   const denied = adminCheck_(p);
   if (denied) return denied;
   const ss = spreadsheet_();
+  try { syncTabColors_(); } catch (err) { Logger.log('分頁上色失敗: ' + err); }
   const rows = accountSheet_().getDataRange().getValues();
   const accounts = [];
   for (let i = 1; i < rows.length; i++) {
@@ -568,7 +616,7 @@ function adminList_(p) {
       group: accountGroupName_(rows[i][GROUP_COLUMN - 1])
     });
   }
-  return { ok: true, accounts: accounts, groups: groupList_().map(function (g) { return g.name; }) };
+  return { ok: true, accounts: accounts, groups: groupList_().map(function (g) { return g.name; }), groupColors: groupColors_() };
 }
 
 function adminReset_(p) {
